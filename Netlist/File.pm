@@ -331,13 +331,10 @@ sub parampin {
     $self->{cellref}->params($prev);
 }
 
-# FIXME: Evaluation of the given net string has massive flaws,
-# e.g. due to escaped identifiers.
-# It should be replaced with a native variant (using the Perl stack in C).
 sub pin {
     my $self = shift;
     my $pin = shift;
-    my $nets = eval shift;
+    my $nets = shift;
     my $number = shift;
     my $hasnamedports = (($pin||'') ne '');
     $pin = "pin".$number if !$hasnamedports;
