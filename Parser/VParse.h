@@ -38,6 +38,15 @@ struct VParseBisonYYSType;
 
 struct av;
 
+struct hash_elem {
+    const char *key;
+    enum VAL_TYPE {STR, INT} val_type;
+    union {
+	const char *val_str;
+	int val_int;
+    };
+};
+
 //**********************************************************************
 // VParse
 
@@ -183,7 +192,7 @@ public:
     virtual void moduleCb(VFileLine* fl, const string& kwd, const string& name, bool, bool celldefine) = 0;
     virtual void packageCb(VFileLine* fl, const string& kwd, const string& name) = 0;
     virtual void parampinCb(VFileLine* fl, const string& name, const string& conn, int index) = 0;
-    virtual void pinCb(VFileLine* fl, const string& name, const string& conn, int index) = 0;
+    virtual void pinCb(VFileLine* fl, const string& name, unsigned int arraycnt, unsigned int elemcnt, struct hash_elem *conn, int index) = 0;
     virtual void portCb(VFileLine* fl, const string& name, const string& objof, const string& direction, const string& data_type
 	, const string& array, int index) = 0;
     virtual void programCb(VFileLine* fl, const string& kwd, const string& name) = 0;
