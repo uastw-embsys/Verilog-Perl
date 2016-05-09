@@ -44,14 +44,14 @@ struct VParseGPin {
 	: m_fl(fl), m_name(name), m_conn(conn), m_number(number) {}
 };
 
-struct VParsePortNet {
-    string m_net;
+struct VParseNet {
+    string m_name;
     string m_msb;
     string m_lsb;
-    VParsePortNet(const string& net, const string& msb, const string& lsb)
-	: m_net(net), m_msb(msb), m_lsb(lsb) {}
-    VParsePortNet(const string& net)
-	: m_net(net), m_msb(""), m_lsb("") {}
+    VParseNet(const string& net, const string& msb, const string& lsb)
+	: m_name(net), m_msb(msb), m_lsb(lsb) {}
+    VParseNet(const string& net)
+	: m_name(net), m_msb(""), m_lsb("") {}
 };
 
 //============================================================================
@@ -83,13 +83,15 @@ public: // Only for VParseBison
     string	m_cellMod;
     bool	m_cellParam;
 
-    string	m_portStack_net;
     bool	m_portStack_net_valid;
+    string	m_portStack_net_name;
+    string	m_portStack_net_msb;
+    string	m_portStack_net_lsb;
     bool	m_within_pin;
     bool	m_within_inst;
 
     deque<VParseGPin>		m_pinStack;
-    deque<VParsePortNet>	m_portStack;
+    deque<VParseNet>	    m_portStack;
 
 public: // But for internal use only
     static VParseGrammar* staticGrammarp() { return s_grammarp; }

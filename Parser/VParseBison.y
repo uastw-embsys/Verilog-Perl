@@ -87,91 +87,127 @@ static void VARDONETYPEDEF(VFileLine* fl, const string& name, const string& type
 }
 
 static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
+	enum net_idx {NETNAME = 0, MSB, LSB};
     if (GRAMMARP->m_cellParam) {
 		// Stack them until we create the instance itself
 		GRAMMARP->m_pinStack.push_back(VParseGPin(fl, name, expr, GRAMMARP->pinNum()));
-    } else if (GRAMMARP->m_portStack.empty()) {
-		// If the instantiation connects a single complete net then 'm_portStack_net' and its valid flag are set.
-		// In that case we need to make sure it is unset here.
-		GRAMMARP->m_portStack_net_valid = 0;
-		std::ostringstream hash;
-		// Build a string representing a Perl hash. Alternative would be to use the Perl-API to do it natively.
-		hash << "[{'netname'=>'" << GRAMMARP->m_portStack_net << "'}]";
-		PARSEP->pinCb(fl, name, hash.str().c_str(), GRAMMARP->pinNum());
     } else {
-		if (GRAMMARP->m_portStack_net_valid) {
-			GRAMMARP->m_portStack.push_front((struct VParsePortNet){GRAMMARP->m_portStack_net, "", ""});
-			GRAMMARP->m_portStack_net_valid = 0;
-		}
-
-		std::deque<VParsePortNet>::iterator it = GRAMMARP->m_portStack.begin();
-		std::ostringstream hash;
-		hash << "[";
-		while (it != GRAMMARP->m_portStack.end()) {
-			char *name = (char *)it->m_net.c_str(); // this cast is safe because we don't modify name's contents
-			const char *msb;
-			const char *lsb;
-			
-			// Handle sized constant numbers (e.g., 7'b0)
-			size_t delim = strcspn(name, "'");
-			if (name[0] != '\\' && it->m_msb.empty() && name[delim] == '\'') {
-				// 1. copy the characters following the lenght (including ') which becomes the new netname
-				size_t name_len = it->m_net.size() - delim;
-				char *new_name = (char *)alloca(name_len + 1);
-				strncpy(new_name, name + delim, name_len);
-				new_name[name_len] = '\0';
-
-				// 2. handle the first part that indicates the width
-				char *new_msb = (char *)alloca(delim + 1);
-				int count = atoi(name); // will stop at '
-				sprintf(new_msb, "%d", count - 1);
-
-				name = new_name;
-				msb = new_msb;
-				lsb = "0";
+		if (GRAMMARP->m_portStack.empty()) {
+			string netname;
+			if (GRAMMARP->m_portStack_net_name.empty()) {
+				netname = expr;
 			} else {
-				msb = it->m_msb.c_str();
-				lsb = it->m_lsb.c_str();
+				netname = GRAMMARP->m_portStack_net_name;
+				GRAMMARP->m_portStack_net_name.clear();
 			}
-			hash << "{ \"netname\"=>\"" << name;
+			size_t elem_cnt = GRAMMARP->m_portStack_net_msb.empty() ? 1 : 3;
+			struct hash_elem nets[elem_cnt];
+			// These assignments could be prettified with C++11
+			nets[NETNAME].key = "netname";
+			nets[NETNAME].val_type = hash_elem::STR;
+			nets[NETNAME].val_str = netname.c_str();
+			if (elem_cnt > 1) {
+				nets[MSB].key = "msb";
+				nets[MSB].val_type = hash_elem::STR;
+				nets[MSB].val_str = GRAMMARP->m_portStack_net_msb.c_str();
+				nets[LSB].key = "lsb";
+				nets[LSB].val_type = hash_elem::STR;
+				nets[LSB].val_str = GRAMMARP->m_portStack_net_lsb.c_str();
+			}
+			PARSEP->pinCb(fl, name, 1, elem_cnt, &nets[0], GRAMMARP->pinNum());
+			if (elem_cnt > 1) {
+				GRAMMARP->m_portStack_net_msb.clear();
+				GRAMMARP->m_portStack_net_lsb.clear();
+			}
+		} else {
+			// Connection with multiple pins was parsed completely.
+			// There might be one net left in the pipe...
+			if (GRAMMARP->m_portStack_net_valid) {
+				GRAMMARP->m_portStack.push_front((struct VParseNet){GRAMMARP->m_portStack_net_name, GRAMMARP->m_portStack_net_msb, GRAMMARP->m_portStack_net_lsb});
+			}
 
-			if (msb[0] != '\0') {
-				hash << "\",\"lsb\"=>\"" << lsb;
-				hash << "\",\"msb\"=>\"" << msb;
+			unsigned int arraycnt = GRAMMARP->m_portStack.size();
+			struct hash_elem nets[arraycnt][3];
+			struct hash_elem (*net)[3] = &nets[0];
+			memset(&nets, 0, sizeof(nets));
+			
+			std::deque<VParseNet>::iterator it = GRAMMARP->m_portStack.begin();
+			// FIXME: instead of atoi below use strtol for better error handling(?)?
+			// Cf. http://stackoverflow.com/a/6154614/1905491
+			while (it != GRAMMARP->m_portStack.end()) {
+				struct hash_elem *nh = net[0];
+				const char *netname = it->m_name.c_str(); // this is safe because we don't modify netname's contents
+				
+				// Handle sized constant numbers (e.g., 7'b0)
+				size_t delim = strcspn(netname, "'");
+				if (netname[0] != '\\' && it->m_msb.empty() && netname[delim] == '\'') {
+					// 1. copy the characters following the lenght (including ') which becomes the new netname
+					size_t netname_len = it->m_name.size() - delim;
+					char *new_netname = (char *)alloca(netname_len + 1);
+					strncpy(new_netname, netname + delim, netname_len);
+					new_netname[netname_len] = '\0';
+
+					// 2. handle the first part that indicates the width
+					int count = atoi(netname); // will stop at '
+
+					// These assignments could be prettified with C++11
+					nh[MSB].key = "msb";
+					nh[MSB].val_type = hash_elem::INT;
+					nh[MSB].val_int = count - 1;
+					nh[LSB].key = "lsb";
+					nh[LSB].val_type = hash_elem::INT;
+					nh[LSB].val_int = 0;
+					netname = new_netname;
+				} else {
+					const char *msbstr = it->m_msb.c_str();
+					if (msbstr[0] != '\0') {
+						nh[MSB].key = "msb";
+						nh[MSB].val_type = hash_elem::INT;
+						nh[MSB].val_int = atoi(msbstr);
+						nh[LSB].key = "lsb";
+						nh[LSB].val_type = hash_elem::INT;
+						nh[LSB].val_int = atoi(it->m_lsb.c_str());
+					} else {
+						nh[MSB].key = NULL;
+						nh[LSB].key = NULL;
+					}
+				}
+
+				nh[NETNAME].key = "netname";
+				nh[NETNAME].val_type = hash_elem::STR;
+				nh[NETNAME].val_str = netname;
+
+				*it++;
+				net++;
 			}
-			hash << "\"},";
-			*it++;
+			PARSEP->pinCb(fl, name, arraycnt, 3, &nets[0][0], GRAMMARP->pinNum());
 		}
-		if (!GRAMMARP->m_portStack.empty())
-			hash.seekp(-1, hash.cur); // Decrement write pointer to overwrite superfluous ,
-
-		hash << ']';
-		PARSEP->pinCb(fl, name, hash.str(), GRAMMARP->pinNum());
+		GRAMMARP->m_portStack_net_valid = 0;
 		GRAMMARP->m_portStack.clear();
 	}
 }
 
 static void PINPARAMS() {
-    // Throw out all the pins we found before we could do instanceCb
+    // Throw out all the "pins" we found before we could do instanceCb
     while (!GRAMMARP->m_pinStack.empty()) {
 		VParseGPin& pinr = GRAMMARP->m_pinStack.front();
 		PARSEP->parampinCb(pinr.m_fl, pinr.m_name, pinr.m_conn, pinr.m_number);
 		GRAMMARP->m_pinStack.pop_front();
     }
+	GRAMMARP->m_within_pin = 1;
 }
 
 static void PORTNET(VFileLine* fl, const string& name) {
 	if (!GRAMMARP->m_within_inst)
 	    return;
 
-	if (GRAMMARP->m_portStack_net_valid) {
-	    GRAMMARP->m_portStack.push_front((struct VParsePortNet){GRAMMARP->m_portStack_net, "", ""});
-	}
-
-	GRAMMARP->m_portStack_net = name;
 	GRAMMARP->m_portStack_net_valid = 1;
+	GRAMMARP->m_portStack_net_name = name;
+	GRAMMARP->m_portStack_net_msb.clear();
+	GRAMMARP->m_portStack_net_lsb.clear();
 }
 
+// FIXME: remove?
 // Called from within the exprScope rule to deal with bug98-like constructs.
 // In such cases PORTNET is called twice before the combination of lexpr '.' idArray is parsed so we need to remove those false ports first.
 // The first one is pushed already (triggered by the second one).
@@ -180,8 +216,6 @@ static void PORTNET_DOTTED(VFileLine* fl, const string& name) {
 	if (!GRAMMARP->m_within_inst)
 	    return;
 
-	GRAMMARP->m_portStack_net_valid = 0;
-	GRAMMARP->m_portStack.pop_front();
 	PORTNET(fl, name);
 }
 
@@ -189,8 +223,8 @@ static void PORTRANGE(const string& msb, const string& lsb) {
 	if (!GRAMMARP->m_within_inst)
 	    return;
 
-	GRAMMARP->m_portStack.push_front((struct VParsePortNet){GRAMMARP->m_portStack_net, msb, lsb});
-	GRAMMARP->m_portStack_net_valid = 0;
+	GRAMMARP->m_portStack_net_msb = msb;
+	GRAMMARP->m_portStack_net_lsb = lsb;
 }
 
 static void PIN_CONCAT_APPEND(const string& expr) {
@@ -198,11 +232,12 @@ static void PIN_CONCAT_APPEND(const string& expr) {
 	    return;
 
 	/* Only while not within a valid net term the expression is part of a replication constant. */
-	if (GRAMMARP->m_portStack_net_valid)
-	    return;
-
-	printf("pushing %s\n", expr.c_str());
-	GRAMMARP->m_portStack.push_front((struct VParsePortNet){expr});
+	if (!GRAMMARP->m_portStack_net_valid) {
+		GRAMMARP->m_portStack.push_front((struct VParseNet){expr});
+	} else {
+		GRAMMARP->m_portStack.push_front((struct VParseNet){GRAMMARP->m_portStack_net_name, GRAMMARP->m_portStack_net_msb, GRAMMARP->m_portStack_net_lsb});
+	}
+	GRAMMARP->m_portStack_net_valid = 0;
 }
 
 /* Yacc */
@@ -2129,11 +2164,11 @@ instRangeE<str>:
 	;
 
 cellpinList:
-		{ GRAMMARP->m_within_pin = 1; VARRESET_LIST(""); } cellpinItList	{ VARRESET_NONLIST("");  GRAMMARP->m_within_pin = 0; }
+		{ VARRESET_LIST(""); } cellpinItList	{ VARRESET_NONLIST("");  GRAMMARP->m_within_pin = 0; }
 	;
 
 cellpinItList:			// IEEE: list_of_port_connections + list_of_parameter_assignmente
-		{ GRAMMARP->m_portStack_net.clear(); }	cellpinItemE	{ }
+		{ GRAMMARP->m_portStack_net_name.clear(); }	cellpinItemE	{ }
 	|	cellpinItList ',' cellpinItemE		{ }
 	;
 
@@ -3273,8 +3308,8 @@ exprOrDataTypeOrMinTypMax<str>:	// exprOrDataType or mintypmax_expression
 
 cateList<str>:
 	//			// Not just 'expr' to prevent conflict via stream_concOrExprOrType
-		stream_expression			{ $<fl>$=$<fl>1; $$ = $1; }
-	|	cateList ',' stream_expression		{ $<fl>$=$<fl>1; $$ = $1+","+$3; }
+		stream_expression			{ $<fl>$=$<fl>1; $$ = $1; PIN_CONCAT_APPEND($1); }
+	|	cateList ',' stream_expression		{ $<fl>$=$<fl>1; $$ = $1+","+$3; PIN_CONCAT_APPEND($3); }
 	;
 
 exprOrDataTypeList<str>:
