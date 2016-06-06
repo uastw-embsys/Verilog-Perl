@@ -18,7 +18,7 @@ use strict;
 
 $VERSION = '3.425';
 
-structs('new',
+structs('_new_base',
 	'Verilog::Netlist::Pin::Struct'
 	=>[name     	=> '$', #'	# Pin connection
 	   filename 	=> '$', #'	# Filename this came from
@@ -27,13 +27,13 @@ structs('new',
 	   attributes	=> '%', #'	# Misc attributes for systemperl or other processors
 	   #
 	   comment	=> '$', #'	# Comment provided by user
-	   netnames	=> '$', #'	# Net connections
+	   _netnames	=> '$', #'	# Arrayref to net descriptors
 	   portname 	=> '$', #'	# Port connection name
 	   portnumber   => '$', #'	# Position of name in call
 	   pinnamed 	=> '$', #'	# True if name assigned
 	   cell     	=> '$', #'	# Cell reference
 	   # below only after link()
-	   nets		=> '$', #'	# Net connection references
+	   _nets	=> '$', #'	# Arrayref to references to connected nets
 	   port		=> '$', #'	# Port connection reference
 	   # SystemPerl: below only after autos()
 	   sp_autocreated => '$', #'	# Created by auto()
@@ -42,10 +42,25 @@ structs('new',
 	   #submod
 	   ]);
 
+sub new {
+    my $class = shift;
+    my %params = (@_);
+    if (defined $params{netname}) {
+	# handle legacy instructor parameter "netname"
+	$params{_netnames} = [{netname=>$params{netname}}];
+	delete $params{netname};
+    } elsif (defined $params{netnames}) {
+	# remape netnames to _netnames
+	$params{_netnames} = $params{netnames};
+	delete $params{netnames};
+    }
+    return $class->_new_base (%params);
+}
+
 sub delete {
     my $self = shift;
     if ($self->nets && $self->port) {
-	foreach my $net (@{$self->nets}) {
+	foreach my $net ($self->nets) {
 	    next unless $net->{net};
 	    my $dir = $self->port->direction;
 	    if ($dir eq 'in') {
@@ -64,7 +79,28 @@ sub delete {
 
 ######################################################################
 #### Methods
+# Legacy accessors
+sub netname {
+    return undef if !defined($_[0]->_netnames);
+    return @{$_[0]->_netnames}[0]->{netname};
+}
+sub net {
+    return undef if !defined($_[0]->_nets);
+    return @{$_[0]->_nets}[0];
+}
 
+sub nets {
+    return [] if !defined($_[0]->_nets);
+    return (@{$_[0]->_nets});
+}
+sub nets_sorted {
+    return [] if !defined($_[0]->_nets);
+    return (sort {$a->name() cmp $b->name()} (@{$_[0]->_nets}));
+}
+sub netnames {
+    return [] if !defined($_[0]->_netnames);
+    return @{$_[0]->_netnames};
+}
 sub logger {
     return $_[0]->netlist->logger;
 }
@@ -78,15 +114,36 @@ sub netlist {
     return $_[0]->cell->module->netlist;
 }
 
+sub _bracketed_msb_lsb {
+    my $self = shift;
+    my $netname = shift;
+    my $out = "";
+    # Handle sized constant numbers (e.g., 7'b0) distinctively
+    if ($netname->{netname} =~ /^'/) {
+	$out .= $netname->{msb} + 1;
+	$out .= $netname->{netname};
+    } else {
+	$out .= $netname->{netname};
+	if (defined $netname->{msb}) {
+	    if ($netname->{msb} == $netname->{lsb}) {
+		$out .= "[".$netname->{msb}."]";
+	    } else {
+		$out .= "[".$netname->{msb}.":".$netname->{lsb}."]";
+	    }
+	}
+    }
+    return $out;
+}
+
 sub _link {
     my $self = shift;
     # Note this routine is HOT
     my $change;
     # FIXME: does this really make sense? Either we are called repeatedly (e.g. after linking other entities) and need to update nets (e.g. because not all nets were known before(?)) - in that case we need to go through the nets array again and check for unlinked netnames - or we are only called once and then this if is not buying us anything.
-    if (!$self->nets) {
-	if ($self->netnames) {
+    if (!$self->_nets) {
+	if ($self->_netnames) {
 	    my @nets = ();
-	    foreach my $netname (@{$self->netnames}) {
+	    foreach my $netname ($self->netnames) {
 		my $net = $self->module->find_net($netname->{netname});
 		next if (!defined($net));
 		my ($msb, $lsb);
@@ -101,7 +158,7 @@ sub _link {
 		}
 		push(@nets, {net => $net, msb => $msb, lsb => $lsb});
 	    }
-	    $self->nets(\@nets);
+	    $self->_nets(\@nets);
 	    $change = 1;
 	}
     }
@@ -120,9 +177,9 @@ sub _link {
 	    }
 	}
     }
-    if ($change && $self->nets && $self->port) {
+    if ($change && $self->_nets && $self->port) {
 	my $dir = $self->port->direction;
-	foreach my $net (@{$self->nets}) {
+	foreach my $net ($self->nets) {
 	    next unless $net->{net};
 	    if ($dir eq 'in') {
 		$net->{net}->_used_in_inc();
@@ -146,14 +203,14 @@ sub type_match {
 
 sub lint {
     my $self = shift;
-    if (!$self->nets && !$self->netlist->{implicit_wires_ok}) {
+    if (!$self->_nets && !$self->netlist->{implicit_wires_ok}) {
 	    #FIXME: hm. IMHO this might not even be the right place to output this error anyway.
         $self->error ("Pin's net declaration not found: ",$self->netname,"\n");
     }
     if (!$self->port && $self->submod) {
         $self->error ($self,"Port not found in ",$self->submod->keyword," ",$self->submod->name,": ",$self->portname,"\n");
     }
-    if ($self->port && $self->nets) {
+    if ($self->port && $self->_nets) {
 	if (!$self->type_match) {
 		# FIXME
 	    my $nettype = $self->net->data_type;
@@ -162,7 +219,7 @@ sub lint {
 			 ,$self->name,"\n");
 	}
 	
-	foreach my $net (@{$self->nets}) {
+	foreach my $net ($self->nets) {
 	    next unless $net->{net} && $net->{net}->port;
 	    my $portdir = $self->port->direction;
 	    my $netdir = $net->{net}->port->direction;
@@ -186,29 +243,14 @@ sub verilog_text {
     } elsif ($self->pinnamed) {
 	$inst = ".".$self->name."(";
     } else { # not by name, and unlinked
-	return $self->netnames;
+	return $self->{_netnames};
     }
-    my $net_cnt = scalar(@{$self->netnames});
+    my $net_cnt = $self->netnames;
     if ($net_cnt > 1) {
 	$inst .= "{";
     }
-    foreach my $netname (reverse(@{$self->netnames})) {
-	if ($netname->{netname}) {
-	    # Handle sized constant numbers (e.g., 7'b0) distinctively
-	    if ($netname->{netname} =~ /^'/) {
-		$inst .= $netname->{msb} + 1;
-		$inst .= $netname->{netname};
-	    } else {
-		$inst .= $netname->{netname};
-		if (defined($netname->{msb})) {
-		    if ($netname->{msb} == $netname->{lsb}) {
-			$inst .= "[".$netname->{msb}."]";
-		    } else {
-			$inst .= "[".$netname->{msb}.":".$netname->{lsb}."]";
-		    }
-		}
-	    }
-	}
+    foreach my $netname (reverse($self->netnames)) {
+	$inst .= $self->_bracketed_msb_lsb($netname);
 	$inst .= ",";
     }
     chop($inst); # remove superfluous ,
@@ -223,32 +265,19 @@ sub dump {
     my $self = shift;
     my $indent = shift||0;
     my $out = " "x$indent."Pin:".$self->name."  Nets:";
-    foreach my $netname (reverse(@{$self->netnames})) {
-	# Handle sized constant numbers (e.g., 7'b0) distinctively
-	if ($netname->{netname} =~ /^'/) {
-	    $out .= $netname->{msb} + 1;
-	    $out .= $netname->{netname};
-	} else {
-	    $out .= $netname->{netname};
-	    if (defined $netname->{msb}) {
-		if ($netname->{msb} == $netname->{lsb}) {
-		    $out .= "[".$netname->{msb}."]";
-		} else {
-		    $out .= "[".$netname->{msb}.":".$netname->{lsb}."]";
-		}
-	    }
-	}
+    foreach my $netname (reverse($self->netnames)) {
+	$out .= $self->_bracketed_msb_lsb($netname);
 	$out .= ",";
     }
-    if (scalar(@{$self->netnames}) ne 0) {
+    if (scalar($self->netnames) ne 0) {
 	chop($out);
     }
     print "$out\n";
     if ($self->port) {
 	$self->port->dump($indent+10, 'norecurse');
     }
-    if ($self->nets) {
-	foreach my $net (@{$self->nets}) {
+    if ($self->_nets) {
+	foreach my $net ($self->nets) {
 	    next unless $net->{net};
 	    $net->{net}->dump($indent+10, 'norecurse');
 	}

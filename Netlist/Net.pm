@@ -264,7 +264,7 @@ sub dump_drivers {
     }
     foreach my $cell ($self->module->cells_sorted) {
 	foreach my $pin ($cell->pins_sorted) {
-	    foreach my $net (@{$pin->nets}) {
+	    foreach my $net ($pin->nets) {
 		next unless defined($net->{net});
 		if ($pin->port && $net->{net} == $self) {
 		    print " "x$indent,"  Pin:  ",$cell->name,".",$pin->name
