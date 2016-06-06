@@ -35,11 +35,11 @@ ok(1, "use");
 	my $b = $moda->new_cell (name=>'i_b', submodname=>'b', @fl);
 	{
 	    $b->new_pin(name=>'z', portname=>'z', pinnamed=>1, netname=>'x', @fl);
-	    $b->new_pin(name=>'w', portname=>'w', pinnamed=>1, netname=>'y', @fl);
+	    $b->new_pin(name=>'w', portname=>'w', pinnamed=>1, netnames=>[{'netname'=>'y', msb=>2, lsb=>0}], @fl);
 	}
     }
 
-    #$nl->link;
+    $nl->link;
     print $nl->verilog_text;
 }
 
