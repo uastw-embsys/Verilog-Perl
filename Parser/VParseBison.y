@@ -89,9 +89,41 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
     if (GRAMMARP->m_cellParam) {
 	// Stack them until we create the instance itself
 	GRAMMARP->m_pinStack.push_back(VParseGPin(fl, name, expr, GRAMMARP->pinNum()));
+    } else if (GRAMMARP->m_portStack.empty()) {
+		// If the instantiation connects a single complete net then 'm_portStack_net' and its valid flag are set.
+		// In that case we need to make sure it is unset here.
+		GRAMMARP->m_portStack_net_valid = 0;
+		// However 'expr' is used directly below because it reflects what's inside the parentheses anyway.
+		std::ostringstream hash;
+		// Build a string representing a Perl hash. Alternative would be to use the Perl-API to do it natively.
+		hash << "[{'netname'=>'" << expr << "'}]";
+		PARSEP->pinCb(fl, name, hash.str().c_str(), GRAMMARP->pinNum());
     } else {
-	PARSEP->pinCb(fl, name, expr, GRAMMARP->pinNum());
-    }
+		if (GRAMMARP->m_portStack_net_valid) {
+			GRAMMARP->m_portStack.push_back((struct VParsePortNet){GRAMMARP->m_portStack_net, "", ""});
+			GRAMMARP->m_portStack_net_valid = 0;
+		}
+
+		std::deque<VParsePortNet>::iterator it = GRAMMARP->m_portStack.begin();
+		std::ostringstream hash;
+		hash << "[";
+		while (it != GRAMMARP->m_portStack.end()) {
+			hash << "{ 'netname'=>'" << it->m_net;
+
+			if (!it->m_lsb.empty()) {
+				hash << "','lsb'=>'" << it->m_lsb;
+				hash << "','msb'=>'" << it->m_msb;
+			}
+			hash << "'},";
+			*it++;
+		}
+		if (!GRAMMARP->m_portStack.empty())
+			hash.seekp(-1, hash.cur); // Decrement write pointer to overwrite superfluous ,
+
+		hash << ']';
+		PARSEP->pinCb(fl, name, hash.str(), GRAMMARP->pinNum());
+		GRAMMARP->m_portStack.clear();
+	}
 }
 
 static void PINPARAMS() {
@@ -101,6 +133,39 @@ static void PINPARAMS() {
 	PARSEP->parampinCb(pinr.m_fl, pinr.m_name, pinr.m_conn, pinr.m_number);
 	GRAMMARP->m_pinStack.pop_front();
     }
+}
+
+static void PORTNET(VFileLine* fl, const string& name) {
+	if (!GRAMMARP->m_within_inst)
+	    return;
+
+	if (GRAMMARP->m_portStack_net_valid) {
+	    GRAMMARP->m_portStack.push_back((struct VParsePortNet){GRAMMARP->m_portStack_net, "", ""});
+	}
+
+	GRAMMARP->m_portStack_net = name;
+	GRAMMARP->m_portStack_net_valid = 1;
+}
+
+// Called from within the exprScope rule to deal with bug98-like constructs.
+// In such cases PORTNET is called twice before the combination of lexpr '.' idArray is parsed so we need to remove those false ports first.
+// The first one is pushed already (triggered by the second one).
+// However, the second one is only stored in m_portStack_net so far so clearing the valid flag is enough.
+static void PORTNET_DOTTED(VFileLine* fl, const string& name) {
+	if (!GRAMMARP->m_within_inst)
+	    return;
+
+	GRAMMARP->m_portStack_net_valid = 0;
+	GRAMMARP->m_portStack.pop_front();
+	PORTNET(fl, name);
+}
+
+static void PORTRANGE(const string& msb, const string& lsb) {
+	if (!GRAMMARP->m_within_inst)
+	    return;
+
+	GRAMMARP->m_portStack.push_back((struct VParsePortNet){GRAMMARP->m_portStack_net, msb, lsb});
+	GRAMMARP->m_portStack_net_valid = 0;
 }
 
 /* Yacc */
@@ -1973,8 +2038,8 @@ defparam_assignment:		// ==IEEE: defparam_assignment
 //   checker_id			  name  (pins) ;		// checker_instantiation
 
 etcInst:			// IEEE: module_instantiation + gate_instantiation + udp_instantiation
-		instName {INSTPREP($1,1);} strengthSpecE parameter_value_assignmentE {INSTPREP($1,0);} instnameList ';'
-		 	{ }
+		instName { INSTPREP($1,1); } strengthSpecE parameter_value_assignmentE { GRAMMARP->m_within_inst = 1; INSTPREP($1,0); } instnameList ';'
+		 	{ GRAMMARP->m_within_inst = 0; }
 	//			// IEEE: interface_identifier' .' modport_identifier list_of_interface_identifiers
 	|	instName {INSTPREP($1,1);} '.' id {INSTPREP($1,0);} mpInstnameList ';' 	{ }
 	;
@@ -2031,7 +2096,7 @@ cellpinList:
 	;
 
 cellpinItList:			// IEEE: list_of_port_connections + list_of_parameter_assignmente
-		cellpinItemE				{ }
+		{ GRAMMARP->m_portStack_net.clear(); }	cellpinItemE	{ }
 	|	cellpinItList ',' cellpinItemE		{ }
 	;
 
@@ -3123,7 +3188,7 @@ exprScope<str>:			// scope and variable for use to inside an expression
 	|	idArrayed				{ $<fl>$=$<fl>1; $$ = $1; }
 	|	package_scopeIdFollows idArrayed	{ $<fl>$=$<fl>1; $$ = $1+$2; }
 	|	class_scopeIdFollows idArrayed		{ $<fl>$=$<fl>1; $$ = $<str>1+$2; }
-	|	~l~expr '.' idArrayed			{ $<fl>$=$<fl>1; $$ = $1+"."+$3; }
+	|	~l~expr '.' idArrayed			{ $<fl>$=$<fl>1; $$ = $1+"."+$3; PORTNET_DOTTED($<fl>1, $$); }
 	//			// expr below must be a "yTHIS"
 	|	~l~expr '.' ySUPER			{ $<fl>$=$<fl>1; $$ = $1+"."+$3; }
 	//			// Part of implicit_class_handle
@@ -3477,10 +3542,10 @@ idDottedForeachMore<str>:
 // id below includes:
 //	 enum_identifier
 idArrayed<str>:			// IEEE: id + select
-		id					{ $<fl>$=$<fl>1; $$ = $1; }
+		id					{ $<fl>$=$<fl>1; $$ = $1; PORTNET($<fl>1, $1);}
 	//			// IEEE: part_select_range/constant_part_select_range
-	|	idArrayed '[' expr ']'				{ $<fl>$=$<fl>1; $$ = $1+"["+$3+"]"; }
-	|	idArrayed '[' constExpr ':' constExpr ']'	{ $<fl>$=$<fl>1; $$ = $1+"["+$3+":"+$5+"]"; }
+	|	idArrayed '[' expr ']'				{ $<fl>$=$<fl>1; $$ = $1+"["+$3+"]"; PORTRANGE($3, $3);}
+	|	idArrayed '[' constExpr ':' constExpr ']'	{ $<fl>$=$<fl>1; $$ = $1+"["+$3+":"+$5+"]"; PORTRANGE($3, $5);}
 	//	 		// IEEE: indexed_range/constant_indexed_range
 	|	idArrayed '[' expr yP_PLUSCOLON  constExpr ']'	{ $<fl>$=$<fl>1; $$ = $1+"["+$3+"+:"+$5+"]"; }
 	|	idArrayed '[' expr yP_MINUSCOLON constExpr ']'	{ $<fl>$=$<fl>1; $$ = $1+"["+$3+"-:"+$5+"]"; }
