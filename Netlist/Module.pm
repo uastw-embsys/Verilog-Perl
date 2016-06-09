@@ -161,11 +161,26 @@ sub nets_and_ports_sorted {
 
 sub new_net {
     my $self = shift;
-    # @_ params
+    my %params = @_;
+
     # Create a new net under this
-    my $netref = new Verilog::Netlist::Net (direction=>'net', data_type=>'wire',
-					    @_,
-					    module=>$self, );
+    my $netref;
+    if (defined($params{'msb'})) {
+	my $data_type;
+	$data_type = "[".($params{'msb'});
+	$data_type .= ":".($params{'lsb'}) if defined $params{'lsb'};
+	$data_type .= "]";
+	$netref = new Verilog::Netlist::Net (decl_type=>'net',
+					     net_type => 'wire',
+					     data_type=>$data_type,
+					     %params,
+					     module=>$self);
+    } else {
+	$netref = new Verilog::Netlist::Net (decl_type => 'net',
+					     net_type => 'wire',
+					     %params,
+					     module=>$self);
+    }
     $self->_nets ($netref->name(), $netref);
     return $netref;
 }

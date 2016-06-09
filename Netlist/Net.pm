@@ -261,14 +261,17 @@ sub dump_drivers {
     }
     foreach my $cell ($self->module->cells_sorted) {
 	foreach my $pin ($cell->pins_sorted) {
-	    if ($pin->port && $pin->net && $pin->net == $self) {
-		print " "x$indent,"  Pin:  ",$cell->name,".",$pin->name
-		    ,"  ",$pin->port->direction,"\n";
-	    }
-	    elsif ($pin->net && $self->name eq $pin->net->name) {
-		warn "%Warning: Internal net name duplicate: ".$cell->name."  ".$self->name."\n"
-		    .$self->comment."  ".$pin->net->comment."\n"
-		    ."$self  ".$pin->net->name."\n";
+	    foreach my $net (@{$pin->nets}) {
+		next unless defined($net->{net});
+		if ($pin->port && $net->{net} == $self) {
+		    print " "x$indent,"  Pin:  ",$cell->name,".",$pin->name
+			,"  ",$pin->port->direction,"\n";
+		}
+		elsif ($self->name eq $net->{net}->name) {
+		    warn "%Warning: Internal net name duplicate: ".$cell->name."  ".$self->name."\n"
+			.$self->comment."  ".$net->{net}->comment."\n"
+			."$self  ".$net->{net}->name."\n";
+		}
 	    }
 	}
     }
