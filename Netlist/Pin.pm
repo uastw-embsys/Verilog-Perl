@@ -87,7 +87,19 @@ sub _link {
 	if ($self->netnames) {
 	    my @nets = ();
 	    foreach my $netname (@{$self->netnames}) {
-		push(@nets, {net => $self->module->find_net($netname->{netname}), msb => $netname->{msb}, lsb => $netname->{lsb}});
+		my $net = $self->module->find_net($netname->{netname});
+		next if (!defined($net));
+		my ($msb, $lsb);
+		# if the parsed description includes a range, use that,
+		# else use the complete range of the underlying net.
+		if (defined($netname->{msb})) {
+		    $msb = $netname->{msb};
+		    $lsb = $netname->{lsb};
+		} else {
+		    $msb = $net->msb;
+		    $lsb = $net->lsb;
+		}
+		push(@nets, {net => $net, msb => $msb, lsb => $lsb});
 	    }
 	    $self->nets(\@nets);
 	    $change = 1;
@@ -180,14 +192,20 @@ sub verilog_text {
     if ($net_cnt > 1) {
 	$inst .= "{";
     }
-    foreach my $netname (@{$self->netnames}) {
+    foreach my $netname (reverse(@{$self->netnames})) {
 	if ($netname->{netname}) {
-	    $inst .= $netname->{netname};
-	    if (defined($netname->{msb})) {
-		if ($netname->{msb} == $netname->{lsb}) {
-		    $inst .= "[".$netname->{msb}."]";
-		} else {
-		    $inst .= "[".$netname->{msb}.":".$netname->{lsb}."]";
+	    # Handle sized constant numbers (e.g., 7'b0) distinctively
+	    if ($netname->{netname} =~ /^'/) {
+		$inst .= $netname->{msb} + 1;
+		$inst .= $netname->{netname};
+	    } else {
+		$inst .= $netname->{netname};
+		if (defined($netname->{msb})) {
+		    if ($netname->{msb} == $netname->{lsb}) {
+			$inst .= "[".$netname->{msb}."]";
+		    } else {
+			$inst .= "[".$netname->{msb}.":".$netname->{lsb}."]";
+		    }
 		}
 	    }
 	}
@@ -205,13 +223,19 @@ sub dump {
     my $self = shift;
     my $indent = shift||0;
     my $out = " "x$indent."Pin:".$self->name."  Nets:";
-    foreach my $netname (@{$self->netnames}) {
-	$out .= $netname->{netname};
-	if (defined $netname->{msb}) {
-	    if ($netname->{msb} == $netname->{lsb}) {
-		$out .= "[".$netname->{msb}."]";
-	    } else {
-		$out .= "[".$netname->{msb}.":".$netname->{lsb}."]";
+    foreach my $netname (reverse(@{$self->netnames})) {
+	# Handle sized constant numbers (e.g., 7'b0) distinctively
+	if ($netname->{netname} =~ /^'/) {
+	    $out .= $netname->{msb} + 1;
+	    $out .= $netname->{netname};
+	} else {
+	    $out .= $netname->{netname};
+	    if (defined $netname->{msb}) {
+		if ($netname->{msb} == $netname->{lsb}) {
+		    $out .= "[".$netname->{msb}."]";
+		} else {
+		    $out .= "[".$netname->{msb}.":".$netname->{lsb}."]";
+		}
 	    }
 	}
 	$out .= ",";

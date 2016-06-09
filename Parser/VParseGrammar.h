@@ -50,6 +50,8 @@ struct VParsePortNet {
     string m_lsb;
     VParsePortNet(const string& net, const string& msb, const string& lsb)
 	: m_net(net), m_msb(msb), m_lsb(lsb) {}
+    VParsePortNet(const string& net)
+	: m_net(net), m_msb(""), m_lsb("") {}
 };
 
 //============================================================================
@@ -83,6 +85,7 @@ public: // Only for VParseBison
 
     string	m_portStack_net;
     bool	m_portStack_net_valid;
+    bool	m_within_pin;
     bool	m_within_inst;
 
     deque<VParseGPin>		m_pinStack;
@@ -105,6 +108,7 @@ public:
 	m_cellParam = false;
 	m_portStack_net_valid = false;
 	m_within_inst = false;
+	m_within_pin = false;
     }
     ~VParseGrammar() {
 	s_grammarp = NULL;
