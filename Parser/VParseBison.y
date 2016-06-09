@@ -30,6 +30,7 @@
 #include <map>
 #include <deque>
 #include <cassert>
+#include <cstring>
 
 #include "VParse.h"
 #include "VParseGrammar.h"
@@ -87,20 +88,19 @@ static void VARDONETYPEDEF(VFileLine* fl, const string& name, const string& type
 
 static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
     if (GRAMMARP->m_cellParam) {
-	// Stack them until we create the instance itself
-	GRAMMARP->m_pinStack.push_back(VParseGPin(fl, name, expr, GRAMMARP->pinNum()));
+		// Stack them until we create the instance itself
+		GRAMMARP->m_pinStack.push_back(VParseGPin(fl, name, expr, GRAMMARP->pinNum()));
     } else if (GRAMMARP->m_portStack.empty()) {
 		// If the instantiation connects a single complete net then 'm_portStack_net' and its valid flag are set.
 		// In that case we need to make sure it is unset here.
 		GRAMMARP->m_portStack_net_valid = 0;
-		// However 'expr' is used directly below because it reflects what's inside the parentheses anyway.
 		std::ostringstream hash;
 		// Build a string representing a Perl hash. Alternative would be to use the Perl-API to do it natively.
-		hash << "[{'netname'=>'" << expr << "'}]";
+		hash << "[{'netname'=>'" << GRAMMARP->m_portStack_net << "'}]";
 		PARSEP->pinCb(fl, name, hash.str().c_str(), GRAMMARP->pinNum());
     } else {
 		if (GRAMMARP->m_portStack_net_valid) {
-			GRAMMARP->m_portStack.push_back((struct VParsePortNet){GRAMMARP->m_portStack_net, "", ""});
+			GRAMMARP->m_portStack.push_front((struct VParsePortNet){GRAMMARP->m_portStack_net, "", ""});
 			GRAMMARP->m_portStack_net_valid = 0;
 		}
 
@@ -108,13 +108,38 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 		std::ostringstream hash;
 		hash << "[";
 		while (it != GRAMMARP->m_portStack.end()) {
-			hash << "{ 'netname'=>'" << it->m_net;
+			char *name = (char *)it->m_net.c_str(); // this cast is safe because we don't modify name's contents
+			const char *msb;
+			const char *lsb;
+			
+			// Handle sized constant numbers (e.g., 7'b0)
+			size_t delim = strcspn(name, "'");
+			if (name[0] != '\\' && it->m_msb.empty() && name[delim] == '\'') {
+				// 1. copy the characters following the lenght (including ') which becomes the new netname
+				size_t name_len = it->m_net.size() - delim;
+				char *new_name = (char *)alloca(name_len + 1);
+				strncpy(new_name, name + delim, name_len);
+				new_name[name_len] = '\0';
 
-			if (!it->m_lsb.empty()) {
-				hash << "','lsb'=>'" << it->m_lsb;
-				hash << "','msb'=>'" << it->m_msb;
+				// 2. handle the first part that indicates the width
+				char *new_msb = (char *)alloca(delim + 1);
+				int count = atoi(name); // will stop at '
+				sprintf(new_msb, "%d", count - 1);
+
+				name = new_name;
+				msb = new_msb;
+				lsb = "0";
+			} else {
+				msb = it->m_msb.c_str();
+				lsb = it->m_lsb.c_str();
 			}
-			hash << "'},";
+			hash << "{ \"netname\"=>\"" << name;
+
+			if (msb[0] != '\0') {
+				hash << "\",\"lsb\"=>\"" << lsb;
+				hash << "\",\"msb\"=>\"" << msb;
+			}
+			hash << "\"},";
 			*it++;
 		}
 		if (!GRAMMARP->m_portStack.empty())
@@ -140,7 +165,7 @@ static void PORTNET(VFileLine* fl, const string& name) {
 	    return;
 
 	if (GRAMMARP->m_portStack_net_valid) {
-	    GRAMMARP->m_portStack.push_back((struct VParsePortNet){GRAMMARP->m_portStack_net, "", ""});
+	    GRAMMARP->m_portStack.push_front((struct VParsePortNet){GRAMMARP->m_portStack_net, "", ""});
 	}
 
 	GRAMMARP->m_portStack_net = name;
@@ -164,8 +189,20 @@ static void PORTRANGE(const string& msb, const string& lsb) {
 	if (!GRAMMARP->m_within_inst)
 	    return;
 
-	GRAMMARP->m_portStack.push_back((struct VParsePortNet){GRAMMARP->m_portStack_net, msb, lsb});
+	GRAMMARP->m_portStack.push_front((struct VParsePortNet){GRAMMARP->m_portStack_net, msb, lsb});
 	GRAMMARP->m_portStack_net_valid = 0;
+}
+
+static void PIN_CONCAT_APPEND(const string& expr) {
+	if (!GRAMMARP->m_within_pin)
+	    return;
+
+	// Only while not within a valid net term the expression is part of a replication constant.
+	if (GRAMMARP->m_portStack_net_valid)
+	    return;
+
+	printf("pushing %s\n", expr.c_str());
+	GRAMMARP->m_portStack.push_front((struct VParsePortNet){expr});
 }
 
 /* Yacc */
@@ -2092,7 +2129,7 @@ instRangeE<str>:
 	;
 
 cellpinList:
-		{ VARRESET_LIST(""); } cellpinItList	{ VARRESET_NONLIST(""); }
+		{ GRAMMARP->m_within_pin = 1; VARRESET_LIST(""); } cellpinItList	{ VARRESET_NONLIST("");  GRAMMARP->m_within_pin = 0; }
 	;
 
 cellpinItList:			// IEEE: list_of_port_connections + list_of_parameter_assignmente
