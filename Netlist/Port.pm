@@ -67,12 +67,15 @@ sub _link {
     if (!$self->net) {
 	my $net = $self->module->find_net ($self->name);
 	if (!$net) {
+	    $self->data_type =~ /\[([^:]+)(:(.*))?\]$/ if defined($self->data_type);
+	    my $msb = $1;
+	    my $lsb = defined($3) ? $3 : $1;
 	    $net = $self->module->new_net
 		(name=>$self->name,
 		 filename=>$self->filename, lineno=>$self->lineno,
 		 decl_type=>"port", net_type=>"wire",
 		 data_type=>$self->data_type, array=>$self->array,
-		 comment=>undef,
+		 comment=>undef,msb=>$msb,lsb=>$lsb,
 		 );
 	    $net->attributes($self->attributes);  # Copy attributes across
 	}

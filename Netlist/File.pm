@@ -331,25 +331,28 @@ sub parampin {
     $self->{cellref}->params($prev);
 }
 
+# FIXME: Evaluation of the given net string has massive flaws,
+# e.g. due to escaped identifiers.
+# It should be replaced with a native variant (using the Perl stack in C).
 sub pin {
     my $self = shift;
     my $pin = shift;
-    my $net = shift;
+    my $nets = eval shift;
     my $number = shift;
     my $hasnamedports = (($pin||'') ne '');
     $pin = "pin".$number if !$hasnamedports;
 
-    print "   Pin $pin  $net $number \n" if $Verilog::Netlist::Debug;
+    print "   Pin $pin  $number \n" if $Verilog::Netlist::Debug;
     my $cellref = $self->{cellref};
     if (!$cellref) {
-	return $self->error ("PIN outside of cell definition", $net);
+	return $self->error ("PIN outside of cell definition");
     }
     my $pinref = $cellref->new_pin (name=>$pin,
 				    portname=>$pin,
 				    portnumber=>$number,
 				    pinnamed=>$hasnamedports,
 				    filename=>$self->filename, lineno=>$self->lineno,
-				    netname=>$net, );
+				    netnames=>$nets, );
     # If any pin uses call-by-name, then all are assumed to use call-by-name
     $cellref->byorder(1) if !$hasnamedports;
     $self->{_cmtpre} = undef;

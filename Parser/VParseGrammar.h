@@ -33,7 +33,7 @@ using namespace std;
 #include "VAst.h"
 
 //============================================================================
-// Container of things to put out later
+// Containers of things to put out later
 
 struct VParseGPin {
     VFileLine* m_fl;
@@ -42,6 +42,14 @@ struct VParseGPin {
     int m_number;
     VParseGPin(VFileLine* fl, const string& name, const string& conn, int number)
 	: m_fl(fl), m_name(name), m_conn(conn), m_number(number) {}
+};
+
+struct VParsePortNet {
+    string m_net;
+    string m_msb;
+    string m_lsb;
+    VParsePortNet(const string& net, const string& msb, const string& lsb)
+	: m_net(net), m_msb(msb), m_lsb(lsb) {}
 };
 
 //============================================================================
@@ -73,8 +81,12 @@ public: // Only for VParseBison
     string	m_cellMod;
     bool	m_cellParam;
 
+    string	m_portStack_net;
+    bool	m_portStack_net_valid;
+    bool	m_within_inst;
 
-    deque<VParseGPin> m_pinStack;
+    deque<VParseGPin>		m_pinStack;
+    deque<VParsePortNet>	m_portStack;
 
 public: // But for internal use only
     static VParseGrammar* staticGrammarp() { return s_grammarp; }
@@ -91,6 +103,8 @@ public:
 	s_grammarp = this;
 	m_pinNum = 0;
 	m_cellParam = false;
+	m_portStack_net_valid = false;
+	m_within_inst = false;
     }
     ~VParseGrammar() {
 	s_grammarp = NULL;
