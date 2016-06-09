@@ -190,7 +190,10 @@ sub lint {
     }
     elsif ($self->_used_out()) {
 	if ($self->_used_out()>1
-	    && !$self->array()) {   # if an array, different outputs might hit different bits
+	    # if an array, different outputs might hit different bits
+	    && !$self->array()
+	    # if vector, warn only if # of usages is higher than # of bits in vector
+	    && (abs($self->msb() - $self->lsb()) + 1) < $self->_used_out()) {
 	    $self->warn("Signal has multiple drivers (",
 			$self->_used_out(),"): ",$self->name(), "\n");
 	    $self->dump_drivers(8);
