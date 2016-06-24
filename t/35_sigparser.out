@@ -1087,7 +1087,7 @@ verilog/parser_vectors.v:035: PIN  'a' '[{'lsb'=>"27",'msb'=>"31",'netname'=>"i"
 verilog/parser_vectors.v:036: PIN  'y' '[{'lsb'=>"29",'msb'=>"29",'netname'=>"o"}]' '2'
 verilog/parser_vectors.v:037: ENDCELL  ''
 verilog/parser_vectors.v:039: INSTANT  'mod' 'instmod_5' ''
-verilog/parser_vectors.v:040: PIN  'a' '[{'lsb'=>"1",'msb'=>"2",'netname'=>"somewidebus"},{'lsb'=>"2",'msb'=>"2",'netname'=>"someotherbus"},{'netname'=>"somenet_1"}]' '1'
+verilog/parser_vectors.v:040: PIN  'a' '[{'lsb'=>"1",'msb'=>"2",'netname'=>"somewidebus"},{'lsb'=>"2",'msb'=>"2",'netname'=>"someotherbus"},{'lsb'=>"0",'msb'=>"2",'netname'=>"'b101"},{'netname'=>"somenet_1"}]' '1'
 verilog/parser_vectors.v:041: PIN  'y' '[{'lsb'=>"30",'msb'=>"30",'netname'=>"o"}]' '2'
 verilog/parser_vectors.v:042: ENDCELL  ''
 verilog/parser_vectors.v:044: ENDMODULE  'endmodule'

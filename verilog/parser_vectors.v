@@ -37,7 +37,7 @@ module top(i,o);
     );
 
     mod instmod_5 (
-        .a({somenet_1,someotherbus[2],somewidebus[2:1]}),
+        .a({somenet_1,3'b101,someotherbus[2],somewidebus[2:1]}),
         .y(o[30])
     );
 
