@@ -241,17 +241,20 @@ sub verilog_text {
 	return $self->{_netnames};
     }
     my $net_cnt = $self->netnames;
-    if ($net_cnt > 1) {
+    if ($net_cnt >= 2) {
 	$inst .= "{";
-    }
-    foreach my $netname (reverse($self->netnames)) {
-	$inst .= $self->_bracketed_msb_lsb($netname);
-	$inst .= ",";
-    }
-    chop($inst); # remove superfluous ,
-    if ($net_cnt > 1) {
+	my $comma = "";
+	foreach my $netname (reverse($self->netnames)) {
+	    $inst .= $comma;
+	    $inst .= $self->_bracketed_msb_lsb($netname);
+	    $comma = ",";
+	}
 	$inst .= "}";
+    } elsif ($net_cnt == 1) {
+	my @tmp = $self->netnames;
+	$inst .= $self->_bracketed_msb_lsb($tmp[0]);
     }
+
     $inst .= ")";
     return $inst;
 }
