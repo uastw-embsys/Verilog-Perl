@@ -30,41 +30,41 @@ Module:pinorder4  Kwd:module  File:verilog/pinorder.v
   Net:d_o  I  DeclT:net  NetT:wire  DataT:  Array:
   Cell:foo1  is-a:foo
             Module:foo  Kwd:module  File:verilog/pinorder.v
-    Pin:abcconst  Nets:3'h0
+    Pin:abcconst  Net:3'h0
               Port:abcconst  Dir:in  DataT:[2:0]  Array:
-    Pin:def  Nets:IPCD_const
+    Pin:def  Net:IPCD_const
               Port:def  Dir:in  DataT:[31:0]  Array:
               Net:IPCD_const  I  DeclT:net  NetT:wire  DataT:[31:0]  Array:  31:0  Value:32'h1
-    Pin:noconnect  Nets:
+    Pin:noconnect  Net:
               Port:noconnect  Dir:in  DataT:signed [3:0]  Array:
-    Pin:x  Nets:a_i
+    Pin:x  Net:a_i
               Port:x  Dir:in  DataT:  Array:
               Net:a_i  I  DeclT:net  NetT:wire  DataT:[7:0]  Array:  7:0
-    Pin:y  Nets:b_i
+    Pin:y  Net:b_i
               Port:y  Dir:in  DataT:  Array:
               Net:b_i  IO  DeclT:net  NetT:wire  DataT:  Array:
   Cell:foo2  is-a:foo2
             Module:foo2  Kwd:module  File:verilog/pinorder.v
-    Pin:x  Nets:b_i
+    Pin:x  Net:b_i
               Port:x  Dir:out  DataT:  Array:
               Net:b_i  IO  DeclT:net  NetT:wire  DataT:  Array:
-    Pin:y  Nets:d_o
+    Pin:y  Net:d_o
               Port:y  Dir:in  DataT:  Array:
               Net:d_o  I  DeclT:net  NetT:wire  DataT:  Array:
-    Pin:z  Nets:a_i[0]
+    Pin:z  Net:a_i[0]
               Port:z  Dir:in  DataT:  Array:
               Net:a_i  I  DeclT:net  NetT:wire  DataT:[7:0]  Array:  7:0
   Cell:foo3  is-a:foo
             Module:foo  Kwd:module  File:verilog/pinorder.v
-    Pin:abcconst  Nets:3'h0
+    Pin:abcconst  Net:3'h0
               Port:abcconst  Dir:in  DataT:[2:0]  Array:
-    Pin:def  Nets:IPCD_const
+    Pin:def  Net:IPCD_const
               Port:def  Dir:in  DataT:[31:0]  Array:
               Net:IPCD_const  I  DeclT:net  NetT:wire  DataT:[31:0]  Array:  31:0  Value:32'h1
-    Pin:x  Nets:a_i
+    Pin:x  Net:a_i
               Port:x  Dir:in  DataT:  Array:
               Net:a_i  I  DeclT:net  NetT:wire  DataT:[7:0]  Array:  7:0
-    Pin:y  Nets:b_i
+    Pin:y  Net:b_i
               Port:y  Dir:in  DataT:  Array:
               Net:b_i  IO  DeclT:net  NetT:wire  DataT:  Array:
   ContAssign:assign  lhs:a_i  rhs:0
