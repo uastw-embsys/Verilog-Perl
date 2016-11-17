@@ -262,13 +262,14 @@ sub verilog_text {
 sub dump {
     my $self = shift;
     my $indent = shift||0;
-    my $out = " "x$indent."Pin:".$self->name."  Nets:";
+    my $net_cnt = $self->netnames;
+    my $out = " "x$indent."Pin:".$self->name;
+    $out .= ($net_cnt > 1) ? "  Nets:" : "  Net:";
+    my $comma="";
     foreach my $netname (reverse($self->netnames)) {
+	$out .= $comma;
 	$out .= $self->_bracketed_msb_lsb($netname);
-	$out .= ",";
-    }
-    if (scalar($self->netnames) ne 0) {
-	chop($out);
+	$comma = ",";
     }
     print "$out\n";
     if ($self->port) {
