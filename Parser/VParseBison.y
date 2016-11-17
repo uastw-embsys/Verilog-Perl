@@ -127,9 +127,8 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 			}
 
 			unsigned int arraycnt = GRAMMARP->m_portStack.size();
-			struct hash_elem nets[arraycnt][3];
+			struct hash_elem nets[arraycnt][3] = {0};
 			struct hash_elem (*net)[3] = &nets[0];
-			memset(&nets, 0, sizeof(nets));
 			
 			std::deque<VParseNet>::iterator it = GRAMMARP->m_portStack.begin();
 			// FIXME: instead of atoi below use strtol for better error handling(?)?
@@ -141,7 +140,7 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 				// Handle sized constant numbers (e.g., 7'b0)
 				size_t delim = strcspn(netname, "'");
 				if (netname[0] != '\\' && it->m_msb.empty() && netname[delim] == '\'') {
-					// 1. copy the characters following the lenght (including ') which becomes the new netname
+					// 1. copy the characters following the length (including ') which becomes the new netname
 					size_t netname_len = it->m_name.size() - delim;
 					char *new_netname = (char *)alloca(netname_len + 1);
 					strncpy(new_netname, netname + delim, netname_len);
@@ -190,9 +189,9 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 static void PINPARAMS() {
     // Throw out all the "pins" we found before we could do instanceCb
     while (!GRAMMARP->m_pinStack.empty()) {
-	VParseGPin& pinr = GRAMMARP->m_pinStack.front();
-	PARSEP->parampinCb(pinr.m_fl, pinr.m_name, pinr.m_conn, pinr.m_number);
-	GRAMMARP->m_pinStack.pop_front();
+		VParseGPin& pinr = GRAMMARP->m_pinStack.front();
+		PARSEP->parampinCb(pinr.m_fl, pinr.m_name, pinr.m_conn, pinr.m_number);
+		GRAMMARP->m_pinStack.pop_front();
     }
 	GRAMMARP->m_within_pin = 1;
 }
@@ -253,7 +252,7 @@ static void ERRSVKWD(VFileLine* fileline, const string& tokname) {
 
 static void NEED_S09(VFileLine*, const string&) {
     //Let lint tools worry about it
-    //fileline->error((string)"Advanced feature: \""+tokname+"\" is a 1800-2009 construct, but used under --lanugage 1800-2005 or earlier.");
+    //fileline->error((string)"Advanced feature: \""+tokname+"\" is a 1800-2009 construct, but used under --language 1800-2005 or earlier.");
 }
 
 %}

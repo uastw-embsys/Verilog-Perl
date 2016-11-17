@@ -44,6 +44,10 @@ extern "C" {
 # undef open	/* Perl 64 bit on solaris has a nasty hack that redefines open */
 #endif
 
+// This is a global constant pointer initialized to its own address to
+// produce a unique address to distinguish hashes (pointers to
+// struct VParseHashElem) from the strings (character pointers) used by
+// callbackgen in its variadic parameters for VParserXs::call().
 static void *hasharray_param = &hasharray_param;
 
 class VFileLineParseXs;
