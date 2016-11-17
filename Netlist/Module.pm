@@ -165,10 +165,10 @@ sub new_net {
 
     # Create a new net under this
     my $netref;
-    if (defined($params{'msb'})) {
+    if (defined($params{msb})) {
 	my $data_type;
-	$data_type = "[".($params{'msb'});
-	$data_type .= ":".($params{'lsb'}) if defined $params{'lsb'};
+	$data_type = "[".($params{msb});
+	$data_type .= ":".($params{lsb}) if defined $params{lsb};
 	$data_type .= "]";
 	$netref = new Verilog::Netlist::Net (decl_type=>'net',
 					     net_type => 'wire',

@@ -50,7 +50,7 @@ sub new {
 	$params{_netnames} = [{netname=>$params{netname}}];
 	delete $params{netname};
     } elsif (defined $params{netnames}) {
-	# remape netnames to _netnames
+	# remap netnames to _netnames
 	$params{_netnames} = $params{netnames};
 	delete $params{netnames};
     }
@@ -64,11 +64,11 @@ sub delete {
 	    next unless $net->{net};
 	    my $dir = $self->port->direction;
 	    if ($dir eq 'in') {
-		$net->{net}->_used_in_dec()||0;
+		$net->{net}->_used_in_dec();
 	    } elsif ($dir eq 'out') {
-		$net->{net}->_used_out_dec()||0;
+		$net->{net}->_used_out_dec();
 	    } elsif ($dir eq 'inout') {
-		$net->{net}->_used_inout_dec()||0;
+		$net->{net}->_used_inout_dec();
 	    }
 	}
     }
@@ -139,7 +139,6 @@ sub _link {
     my $self = shift;
     # Note this routine is HOT
     my $change;
-    # FIXME: does this really make sense? Either we are called repeatedly (e.g. after linking other entities) and need to update nets (e.g. because not all nets were known before(?)) - in that case we need to go through the nets array again and check for unlinked netnames - or we are only called once and then this if is not buying us anything.
     if (!$self->_nets) {
 	if ($self->_netnames) {
 	    my @nets = ();
@@ -203,10 +202,6 @@ sub type_match {
 
 sub lint {
     my $self = shift;
-    if (!$self->_nets && !$self->netlist->{implicit_wires_ok}) {
-	    #FIXME: hm. IMHO this might not even be the right place to output this error anyway.
-        $self->error ("Pin's net declaration not found: ",$self->netname,"\n");
-    }
     if (!$self->port && $self->submod) {
         $self->error ($self,"Port not found in ",$self->submod->keyword," ",$self->submod->name,": ",$self->portname,"\n");
     }
