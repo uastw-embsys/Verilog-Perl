@@ -102,17 +102,17 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 				GRAMMARP->m_portStack_net_name.clear();
 			}
 			size_t elem_cnt = GRAMMARP->m_portStack_net_msb.empty() ? 1 : 3;
-			struct hash_elem nets[elem_cnt];
+			struct VParseHashElem nets[elem_cnt];
 			// These assignments could be prettified with C++11
 			nets[NETNAME].key = "netname";
-			nets[NETNAME].val_type = hash_elem::STR;
+			nets[NETNAME].val_type = VParseHashElem::ELEM_STR;
 			nets[NETNAME].val_str = netname.c_str();
 			if (elem_cnt > 1) {
 				nets[MSB].key = "msb";
-				nets[MSB].val_type = hash_elem::STR;
+				nets[MSB].val_type = VParseHashElem::ELEM_STR;
 				nets[MSB].val_str = GRAMMARP->m_portStack_net_msb.c_str();
 				nets[LSB].key = "lsb";
-				nets[LSB].val_type = hash_elem::STR;
+				nets[LSB].val_type = VParseHashElem::ELEM_STR;
 				nets[LSB].val_str = GRAMMARP->m_portStack_net_lsb.c_str();
 			}
 			PARSEP->pinCb(fl, name, 1, elem_cnt, &nets[0], GRAMMARP->pinNum());
@@ -128,14 +128,14 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 			}
 
 			unsigned int arraycnt = GRAMMARP->m_portStack.size();
-			struct hash_elem nets[arraycnt][3] = {0};
-			struct hash_elem (*net)[3] = &nets[0];
+			struct VParseHashElem nets[arraycnt][3] = {0};
+			struct VParseHashElem (*net)[3] = &nets[0];
 			
 			std::deque<VParseNet>::iterator it = GRAMMARP->m_portStack.begin();
 			// FIXME: instead of atoi below use strtol for better error handling(?)?
 			// Cf. http://stackoverflow.com/a/6154614/1905491
 			while (it != GRAMMARP->m_portStack.end()) {
-				struct hash_elem *nh = net[0];
+				struct VParseHashElem *nh = net[0];
 				const char *netname = it->m_name.c_str(); // this is safe because we don't modify netname's contents
 				
 				// Handle sized constant numbers (e.g., 7'b0)
@@ -152,20 +152,20 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 
 					// These assignments could be prettified with C++11
 					nh[MSB].key = "msb";
-					nh[MSB].val_type = hash_elem::INT;
+					nh[MSB].val_type = VParseHashElem::ELEM_INT;
 					nh[MSB].val_int = count - 1;
 					nh[LSB].key = "lsb";
-					nh[LSB].val_type = hash_elem::INT;
+					nh[LSB].val_type = VParseHashElem::ELEM_INT;
 					nh[LSB].val_int = 0;
 					netname = new_netname;
 				} else {
 					const char *msbstr = it->m_msb.c_str();
 					if (msbstr[0] != '\0') {
 						nh[MSB].key = "msb";
-						nh[MSB].val_type = hash_elem::INT;
+						nh[MSB].val_type = VParseHashElem::ELEM_INT;
 						nh[MSB].val_int = atoi(msbstr);
 						nh[LSB].key = "lsb";
-						nh[LSB].val_type = hash_elem::INT;
+						nh[LSB].val_type = VParseHashElem::ELEM_INT;
 						nh[LSB].val_int = atoi(it->m_lsb.c_str());
 					} else {
 						nh[MSB].key = NULL;
@@ -174,7 +174,7 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 				}
 
 				nh[NETNAME].key = "netname";
-				nh[NETNAME].val_type = hash_elem::STR;
+				nh[NETNAME].val_type = VParseHashElem::ELEM_STR;
 				nh[NETNAME].val_str = netname;
 
 				*it++;
