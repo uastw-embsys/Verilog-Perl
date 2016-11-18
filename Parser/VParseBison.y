@@ -123,7 +123,7 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 			// Connection with multiple pins was parsed completely.
 			// There might be one net left in the pipe...
 			if (GRAMMARP->m_portStack_net_valid) {
-				GRAMMARP->m_portStack.push_front((struct VParseNet){GRAMMARP->m_portStack_net_name, GRAMMARP->m_portStack_net_msb, GRAMMARP->m_portStack_net_lsb});
+				GRAMMARP->m_portStack.push_front(VParseNet(GRAMMARP->m_portStack_net_name, GRAMMARP->m_portStack_net_msb, GRAMMARP->m_portStack_net_lsb));
 			}
 
 			unsigned int arraycnt = GRAMMARP->m_portStack.size();
@@ -220,9 +220,9 @@ static void PIN_CONCAT_APPEND(const string& expr) {
 
 	// Only while not within a valid net term the expression is part of a replication constant.
 	if (!GRAMMARP->m_portStack_net_valid) {
-		GRAMMARP->m_portStack.push_front((struct VParseNet){expr});
+		GRAMMARP->m_portStack.push_front(VParseNet(expr));
 	} else {
-		GRAMMARP->m_portStack.push_front((struct VParseNet){GRAMMARP->m_portStack_net_name, GRAMMARP->m_portStack_net_msb, GRAMMARP->m_portStack_net_lsb});
+		GRAMMARP->m_portStack.push_front(VParseNet(GRAMMARP->m_portStack_net_name, GRAMMARP->m_portStack_net_msb, GRAMMARP->m_portStack_net_lsb));
 	}
 	GRAMMARP->m_portStack_net_valid = 0;
 }
