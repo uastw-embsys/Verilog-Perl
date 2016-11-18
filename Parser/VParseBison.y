@@ -62,7 +62,8 @@
 
 #define PINNUMINC()	{ GRAMMARP->pinNumInc(); }
 
-#define INSTPREP(cellmod,cellparam) { GRAMMARP->pinNum(1); GRAMMARP->m_cellMod=(cellmod); GRAMMARP->m_cellParam=(cellparam); }
+#define INSTPREP(cellmod,cellparam,within_inst) { GRAMMARP->pinNum(1); GRAMMARP->m_cellMod=(cellmod); GRAMMARP->m_cellParam=(cellparam); GRAMMARP->m_within_inst = 1; }
+#define INSTDONE() { GRAMMARP->m_within_inst = 0; }
 
 static void VARDONE(VFileLine* fl, const string& name, const string& array, const string& value) {
     if (GRAMMARP->m_varIO!="" && GRAMMARP->m_varDecl=="") GRAMMARP->m_varDecl="port";
@@ -2097,10 +2098,10 @@ defparam_assignment:		// ==IEEE: defparam_assignment
 //   checker_id			  name  (pins) ;		// checker_instantiation
 
 etcInst:			// IEEE: module_instantiation + gate_instantiation + udp_instantiation
-		instName { INSTPREP($1,1); } strengthSpecE parameter_value_assignmentE { GRAMMARP->m_within_inst = 1; INSTPREP($1,0); } instnameList ';'
-		 	{ GRAMMARP->m_within_inst = 0; }
+		instName { INSTPREP($1,1,0); } strengthSpecE parameter_value_assignmentE { INSTPREP($1,0,1); } instnameList ';'
+		 	{ INSTDONE(); }
 	//			// IEEE: interface_identifier' .' modport_identifier list_of_interface_identifiers
-	|	instName {INSTPREP($1,1);} '.' id {INSTPREP($1,0);} mpInstnameList ';' 	{ }
+	|	instName {INSTPREP($1,1,0);} '.' id {INSTPREP($1,0,0);} mpInstnameList ';' 	{ }
 	;
 
 instName<str>:
@@ -3415,15 +3416,15 @@ stream_expression<str>:		// ==IEEE: stream_expression
 //	+ n_input_gatetype + n_output_gatetype + pass_en_switchtype
 //	+ pass_switchtype
 gateKwd<str>:
-		ygenGATE				{ $<fl>$=$<fl>1; INSTPREP($1,0); }
-	|	yAND					{ $<fl>$=$<fl>1; INSTPREP($1,0); }
-	| 	yBUF					{ $<fl>$=$<fl>1; INSTPREP($1,0); }
-	|	yNAND					{ $<fl>$=$<fl>1; INSTPREP($1,0); }
-	|	yNOR					{ $<fl>$=$<fl>1; INSTPREP($1,0); }
-	|	yNOT					{ $<fl>$=$<fl>1; INSTPREP($1,0); }
-	|	yOR					{ $<fl>$=$<fl>1; INSTPREP($1,0); }
-	|	yXNOR					{ $<fl>$=$<fl>1; INSTPREP($1,0); }
-	|	yXOR					{ $<fl>$=$<fl>1; INSTPREP($1,0); }
+		ygenGATE				{ $<fl>$=$<fl>1; INSTPREP($1,0,0); }
+	|	yAND					{ $<fl>$=$<fl>1; INSTPREP($1,0,0); }
+	| 	yBUF					{ $<fl>$=$<fl>1; INSTPREP($1,0,0); }
+	|	yNAND					{ $<fl>$=$<fl>1; INSTPREP($1,0,0); }
+	|	yNOR					{ $<fl>$=$<fl>1; INSTPREP($1,0,0); }
+	|	yNOT					{ $<fl>$=$<fl>1; INSTPREP($1,0,0); }
+	|	yOR					{ $<fl>$=$<fl>1; INSTPREP($1,0,0); }
+	|	yXNOR					{ $<fl>$=$<fl>1; INSTPREP($1,0,0); }
+	|	yXOR					{ $<fl>$=$<fl>1; INSTPREP($1,0,0); }
 	;
 
 // This list is also hardcoded in VParseLex.l
