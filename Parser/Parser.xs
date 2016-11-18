@@ -189,7 +189,7 @@ public:
     virtual void moduleCb(VFileLine* fl, const string& kwd, const string& name, bool, bool celldefine);
     virtual void packageCb(VFileLine* fl, const string& kwd, const string& name);
     virtual void parampinCb(VFileLine* fl, const string& name, const string& conn, int index);
-    virtual void pinCb(VFileLine* fl, const string& name, unsigned int arraycnt, unsigned int elemcnt, struct hash_elem *conn, int index);
+    virtual void pinCb(VFileLine* fl, const string& name, unsigned int arraycnt, unsigned int elemcnt, struct VParseHashElem *conn, int index);
     virtual void portCb(VFileLine* fl, const string& name, const string& objof, const string& direction, const string& data_type
 	, const string& array, int index);
     virtual void programCb(VFileLine* fl, const string& kwd, const string& name);
@@ -279,19 +279,19 @@ void VParserXs::call (
 		    // Second hasharray param defines how many keys are within one hash
 		    unsigned int elemcnt = va_arg(ap, unsigned int);
 		    // Followed by the hash array pointer...
-		    struct hash_elem (*arr)[elemcnt] = va_arg(ap, struct hash_elem (*)[elemcnt]);
+		    struct VParseHashElem (*arr)[elemcnt] = va_arg(ap, struct VParseHashElem (*)[elemcnt]);
 		    for (unsigned int i = 0; i < arrcnt; i++) {
 			HV* hv = newHV();
-			struct hash_elem *elem = arr[i];
+			struct VParseHashElem *elem = arr[i];
 			for (unsigned int j = 0; j < elemcnt; j++) {
 			    if (elem[j].key == NULL)
 				continue;
 			    SV* sv;
 			    switch (elem[j].val_type) {
-				case hash_elem::INT:
+				case VParseHashElem::ELEM_INT:
 				    sv = newSViv(elem[j].val_int);
 				    break;
-				case hash_elem::STR:
+				case VParseHashElem::ELEM_STR:
 				default:
 				    sv = newSVpv(elem[j].val_str, 0);
 				    break;

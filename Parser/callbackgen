@@ -197,7 +197,7 @@ sub _arglist {
 	} elsif ($type eq 'bool' || $type eq 'int') {
 	    $args .= ", $type $arg";
 	} elsif ($type eq 'hash') {
-	    $args .= ", unsigned int arraycnt, unsigned int elemcnt, struct hash_elem *$arg";
+	    $args .= ", unsigned int arraycnt, unsigned int elemcnt, struct VParseHashElem *$arg";
 	} elsif ($type eq 'undef') {
 	    $args .= ", bool";
 	} else {
