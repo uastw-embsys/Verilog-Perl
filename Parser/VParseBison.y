@@ -206,18 +206,6 @@ static void PORTNET(VFileLine* fl, const string& name) {
 	GRAMMARP->m_portStack_net_lsb.clear();
 }
 
-// FIXME: remove?
-// Called from within the exprScope rule to deal with bug98-like constructs.
-// In such cases PORTNET is called twice before the combination of lexpr '.' idArray is parsed so we need to remove those false ports first.
-// The first one is pushed already (triggered by the second one).
-// However, the second one is only stored in m_portStack_net so far so clearing the valid flag is enough.
-static void PORTNET_DOTTED(VFileLine* fl, const string& name) {
-	if (!GRAMMARP->m_within_inst)
-	    return;
-
-	PORTNET(fl, name);
-}
-
 static void PORTRANGE(const string& msb, const string& lsb) {
 	if (!GRAMMARP->m_within_inst)
 	    return;
@@ -3259,7 +3247,7 @@ exprScope<str>:			// scope and variable for use to inside an expression
 	|	idArrayed				{ $<fl>$=$<fl>1; $$ = $1; }
 	|	package_scopeIdFollows idArrayed	{ $<fl>$=$<fl>1; $$ = $1+$2; }
 	|	class_scopeIdFollows idArrayed		{ $<fl>$=$<fl>1; $$ = $<str>1+$2; }
-	|	~l~expr '.' idArrayed			{ $<fl>$=$<fl>1; $$ = $1+"."+$3; PORTNET_DOTTED($<fl>1, $$); }
+	|	~l~expr '.' idArrayed			{ $<fl>$=$<fl>1; $$ = $1+"."+$3; PORTNET($<fl>1, $$); }
 	//			// expr below must be a "yTHIS"
 	|	~l~expr '.' ySUPER			{ $<fl>$=$<fl>1; $$ = $1+"."+$3; }
 	//			// Part of implicit_class_handle
