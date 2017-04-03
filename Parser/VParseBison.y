@@ -65,6 +65,8 @@
 #define INSTPREP(cellmod,cellparam,within_inst) { GRAMMARP->pinNum(1); GRAMMARP->m_cellMod=(cellmod); GRAMMARP->m_cellParam=(cellparam); GRAMMARP->m_within_inst = 1; }
 #define INSTDONE() { GRAMMARP->m_within_inst = 0; }
 
+enum net_idx {NETNAME = 0, MSB, LSB};
+
 static void VARDONE(VFileLine* fl, const string& name, const string& array, const string& value) {
     if (GRAMMARP->m_varIO!="" && GRAMMARP->m_varDecl=="") GRAMMARP->m_varDecl="port";
     if (GRAMMARP->m_varDecl!="") {
@@ -87,8 +89,58 @@ static void VARDONETYPEDEF(VFileLine* fl, const string& name, const string& type
     PARSEP->syms().replaceInsert(VAstType::TYPE,name);
 }
 
+static void parse_net_constants(struct VParseHashElem nets[][3]) {
+    struct VParseHashElem (*net)[3] = &nets[0];
+    struct VParseHashElem *nh = net[0];
+
+    std::deque<VParseNet>::iterator it = GRAMMARP->m_portStack.begin();
+    while (it != GRAMMARP->m_portStack.end()) {
+	const char *netname;
+
+	// Handle constant numbers (e.g., 7'b0) specifically
+	size_t delim = it->m_name.find_first_of("'");
+	if (it->m_name[0] != '\\' && it->m_msb.empty() && it->m_name[delim] == '\'') {
+	    // skip characters up to the delimiter ' in new netname
+	    netname = it->m_name.c_str() + delim;
+
+	    // handle the first part that indicates the width for sized constants
+	    int count = atoi(it->m_name.c_str()); // will stop at '
+
+	    // These assignments could be prettified with C++11
+	    nh[MSB].key = "msb";
+	    nh[MSB].val_type = VParseHashElem::ELEM_INT;
+	    nh[MSB].val_int = count - 1;
+	    nh[LSB].key = "lsb";
+	    nh[LSB].val_type = VParseHashElem::ELEM_INT;
+	    nh[LSB].val_int = 0;
+	} else {
+	    netname = it->m_name.c_str();
+	    /* Ordinary net names might have a range attached or not.
+	     * If they do then parse them into proper integers. */
+	    const char *msbstr = it->m_msb.c_str();
+	    if (msbstr[0] != '\0') {
+		nh[MSB].key = "msb";
+		nh[MSB].val_type = VParseHashElem::ELEM_INT;
+		nh[MSB].val_int = atoi(msbstr);
+		nh[LSB].key = "lsb";
+		nh[LSB].val_type = VParseHashElem::ELEM_INT;
+		nh[LSB].val_int = atoi(it->m_lsb.c_str());
+	    } else {
+		nh[MSB].key = NULL;
+		nh[LSB].key = NULL;
+	    }
+	}
+
+	nh[NETNAME].key = "netname";
+	nh[NETNAME].val_type = VParseHashElem::ELEM_STR;
+	nh[NETNAME].val_str = netname;
+	*it++;
+	nh+=3; // We operate on three elements in each iteration
+    }
+
+}
+
 static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
-	enum net_idx {NETNAME = 0, MSB, LSB};
     if (GRAMMARP->m_cellParam) {
 		// Stack them until we create the instance itself
 		GRAMMARP->m_pinStack.push_back(VParseGPin(fl, name, expr, GRAMMARP->pinNum()));
@@ -129,57 +181,7 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 
 			unsigned int arraycnt = GRAMMARP->m_portStack.size();
 			struct VParseHashElem nets[arraycnt][3] = {0};
-			struct VParseHashElem (*net)[3] = &nets[0];
-			
-			std::deque<VParseNet>::iterator it = GRAMMARP->m_portStack.begin();
-			// FIXME: instead of atoi below use strtol for better error handling(?)?
-			// Cf. http://stackoverflow.com/a/6154614/1905491
-			while (it != GRAMMARP->m_portStack.end()) {
-				struct VParseHashElem *nh = net[0];
-				const char *netname = it->m_name.c_str(); // this is safe because we don't modify netname's contents
-				
-				// Handle sized constant numbers (e.g., 7'b0)
-				size_t delim = strcspn(netname, "'");
-				if (netname[0] != '\\' && it->m_msb.empty() && netname[delim] == '\'') {
-					// 1. copy the characters following the length (including ') which becomes the new netname
-					size_t netname_len = it->m_name.size() - delim;
-					char *new_netname = (char *)alloca(netname_len + 1);
-					strncpy(new_netname, netname + delim, netname_len);
-					new_netname[netname_len] = '\0';
-
-					// 2. handle the first part that indicates the width
-					int count = atoi(netname); // will stop at '
-
-					// These assignments could be prettified with C++11
-					nh[MSB].key = "msb";
-					nh[MSB].val_type = VParseHashElem::ELEM_INT;
-					nh[MSB].val_int = count - 1;
-					nh[LSB].key = "lsb";
-					nh[LSB].val_type = VParseHashElem::ELEM_INT;
-					nh[LSB].val_int = 0;
-					netname = new_netname;
-				} else {
-					const char *msbstr = it->m_msb.c_str();
-					if (msbstr[0] != '\0') {
-						nh[MSB].key = "msb";
-						nh[MSB].val_type = VParseHashElem::ELEM_INT;
-						nh[MSB].val_int = atoi(msbstr);
-						nh[LSB].key = "lsb";
-						nh[LSB].val_type = VParseHashElem::ELEM_INT;
-						nh[LSB].val_int = atoi(it->m_lsb.c_str());
-					} else {
-						nh[MSB].key = NULL;
-						nh[LSB].key = NULL;
-					}
-				}
-
-				nh[NETNAME].key = "netname";
-				nh[NETNAME].val_type = VParseHashElem::ELEM_STR;
-				nh[NETNAME].val_str = netname;
-
-				*it++;
-				net++;
-			}
+			parse_net_constants(nets);
 			PARSEP->pinCb(fl, name, arraycnt, 3, &nets[0][0], GRAMMARP->pinNum());
 		}
 		GRAMMARP->m_portStack_net_valid = 0;
