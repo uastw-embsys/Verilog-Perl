@@ -46,7 +46,7 @@ sub new {
     my $class = shift;
     my %params = (@_);
     if (defined $params{netname}) {
-	# handle legacy instructor parameter "netname"
+	# handle legacy constructor parameter "netname"
 	$params{_netnames} = [{netname=>$params{netname}}];
 	delete $params{netname};
     } elsif (defined $params{netnames}) {
@@ -119,12 +119,13 @@ sub _bracketed_msb_lsb {
     my $netname = shift;
     my $out = "";
     # Handle sized constant numbers (e.g., 7'b0) distinctively
+    # but leave unsized constants (msb/lsb undefined) alone.
     if ($netname->{netname} =~ /^'/) {
-	$out .= $netname->{msb} + 1;
+	$out .= $netname->{msb} + 1 if defined($netname->{msb});
 	$out .= $netname->{netname};
     } else {
 	$out .= $netname->{netname};
-	if (defined $netname->{msb}) {
+	if (defined($netname->{msb})) {
 	    if ($netname->{msb} == $netname->{lsb}) {
 		$out .= "[".$netname->{msb}."]";
 	    } else {
