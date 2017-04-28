@@ -31,6 +31,9 @@
 #include <deque>
 #include <cassert>
 #include <cstring>
+#include <cerrno>
+#include <cstdlib>
+#include <climits>
 
 #include "VParse.h"
 #include "VParseGrammar.h"
@@ -89,42 +92,95 @@ static void VARDONETYPEDEF(VFileLine* fl, const string& name, const string& type
     PARSEP->syms().replaceInsert(VAstType::TYPE,name);
 }
 
-static void parse_net_constants(struct VParseHashElem nets[][3]) {
+static void parse_net_constants(VFileLine* fl, struct VParseHashElem nets[][3]) {
     struct VParseHashElem (*net)[3] = &nets[0];
     struct VParseHashElem *nh = net[0];
 
     std::deque<VParseNet>::iterator it = GRAMMARP->m_portStack.begin();
     while (it != GRAMMARP->m_portStack.end()) {
-	const char *netname;
+	// Default net name is simply the complete token
+	const char *netname = it->m_name.c_str();
 
-	// Handle constant numbers (e.g., 7'b0) specifically
 	size_t delim = it->m_name.find_first_of("'");
 	if (it->m_name[0] != '\\' && it->m_msb.empty() && it->m_name[delim] == '\'') {
-	    // skip characters up to the delimiter ' in new netname
-	    netname = it->m_name.c_str() + delim;
+	    // Handle sized integer constants (e.g., 7'b0) specifically
+	    if (delim != 0) {
+		// Handle the first part that indicates the width for sized constants (guaranteed to be a decimal)
+		char *end;
+		errno = 0;
+		long l = strtol(netname, &end, 10);
+		if ((errno == ERANGE && l == LONG_MAX) || l > INT_MAX || l <= 0) {
+		    fl->error((string)"Unexpected length in size of integer constant: \""+netname+"\".");
+		    return;
+		}
+		// Skip whitespace
+		while (end < netname + delim && isspace(*end)) {
+		    end++;
+		}
+		if (end != netname + delim) {
+		    fl->error((string)"Could not convert size of integer constant: \""+netname+"\".");
+		    return;
+		}
+		int count = l;
 
-	    // handle the first part that indicates the width for sized constants
-	    int count = atoi(it->m_name.c_str()); // will stop at '
+		// Skip characters up to the delimiter ' to determine new netname
+		netname += delim;
 
-	    // These assignments could be prettified with C++11
-	    nh[MSB].key = "msb";
-	    nh[MSB].val_type = VParseHashElem::ELEM_INT;
-	    nh[MSB].val_int = count - 1;
-	    nh[LSB].key = "lsb";
-	    nh[LSB].val_type = VParseHashElem::ELEM_INT;
-	    nh[LSB].val_int = 0;
-	} else {
-	    netname = it->m_name.c_str();
-	    /* Ordinary net names might have a range attached or not.
-	     * If they do then parse them into proper integers. */
-	    const char *msbstr = it->m_msb.c_str();
-	    if (msbstr[0] != '\0') {
+		// Test for legal base specifiers:
+		// d, D, h, H, o, O , b, or B for the decimal, hexadecimal, octal, and binary bases, respectively
+		char base = netname[1];
+		// 's' indicates a signed constant, is followed by the actual base; currently ignored
+		if (base == 's' || base == 'S') {
+		    base = netname[2];
+		}
+		if (strchr("dDhHoObB", base) == NULL) {
+		    fl->error((string)"Base specifier \""+base+"\" is not valid in integer constant \""+it->m_name.c_str()+"\".");
+		    return;
+		}
+
+		// These assignments could be prettified with C++11
 		nh[MSB].key = "msb";
 		nh[MSB].val_type = VParseHashElem::ELEM_INT;
-		nh[MSB].val_int = atoi(msbstr);
+		nh[MSB].val_int = count - 1;
 		nh[LSB].key = "lsb";
 		nh[LSB].val_type = VParseHashElem::ELEM_INT;
-		nh[LSB].val_int = atoi(it->m_lsb.c_str());
+		nh[LSB].val_int = 0;
+//	    fl->error increases the error count which would create regressions for no good reasons.
+//	    There is no ->warn or similar though but we could print, e.g., to stderr in these cases
+//	    } else {
+//		fl->error((string)"Unsized integer constant are not fully supported in nets (\""+netname+"\").");
+//		fprintf(stderr, "Unsized integer constant are not fully supported in nets (\"%s\").", netname);
+	    }
+	} else {
+	    // Ordinary net names might have a range attached or not.
+	    // If it does then parse its bounds into proper integers.
+	    const char *msbstr = it->m_msb.c_str();
+	    if (msbstr[0] != '\0') {
+		{ // Parse MSB
+		    char *end;
+		    errno = 0;
+		    long l = strtol(msbstr, &end, 10);
+		    // Test for range within int, and proper parsing
+		    if ((errno == ERANGE && l == LONG_MAX) || l > INT_MAX || l < 0 || (end != NULL && l == 0 && errno == ERANGE)) {
+			fl->error((string)"Unexpected length in msb specification of \""+netname+"\" (end="+end+", errno="+strerror(errno)+").");
+			return;
+		    }
+		    nh[MSB].key = "msb";
+		    nh[MSB].val_type = VParseHashElem::ELEM_INT;
+		    nh[MSB].val_int = (int)l;
+		}
+		{ // Parse LSB
+		    char *end;
+		    errno = 0;
+		    long l = strtol(it->m_lsb.c_str(), &end, 10);
+		    if ((errno == ERANGE && l == LONG_MAX) || l > INT_MAX || l < 0 || (end != NULL && l == 0 && errno == ERANGE)) {
+			fl->error((string)"Unexpected length in lsb specification of \""+netname+"\".");
+			return;
+		    }
+		    nh[LSB].key = "lsb";
+		    nh[LSB].val_type = VParseHashElem::ELEM_INT;
+		    nh[LSB].val_int = (int)l;
+		}
 	    } else {
 		nh[MSB].key = NULL;
 		nh[LSB].key = NULL;
@@ -137,7 +193,6 @@ static void parse_net_constants(struct VParseHashElem nets[][3]) {
 	*it++;
 	nh+=3; // We operate on three elements in each iteration
     }
-
 }
 
 static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
@@ -181,7 +236,7 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 
 			unsigned int arraycnt = GRAMMARP->m_portStack.size();
 			struct VParseHashElem nets[arraycnt][3] = {0};
-			parse_net_constants(nets);
+			parse_net_constants(fl, nets);
 			PARSEP->pinCb(fl, name, arraycnt, 3, &nets[0][0], GRAMMARP->pinNum());
 		}
 		GRAMMARP->m_portStack_net_valid = 0;
