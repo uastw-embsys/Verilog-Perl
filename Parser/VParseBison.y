@@ -145,8 +145,8 @@ static void parse_net_constants(VFileLine* fl, struct VParseHashElem nets[][3]) 
 		nh[LSB].key = "lsb";
 		nh[LSB].val_type = VParseHashElem::ELEM_INT;
 		nh[LSB].val_int = 0;
-//	    fl->error increases the error count which would create regressions for no good reasons.
-//	    There is no ->warn or similar though but we could print, e.g., to stderr in these cases
+//		fl->error increases the error count which would create regressions for no good reasons.
+//		There is no ->warn or similar though but we could print, e.g., to stderr in these cases
 //	    } else {
 //		fl->error((string)"Unsized integer constant are not fully supported in nets (\""+netname+"\").");
 //		fprintf(stderr, "Unsized integer constant are not fully supported in nets (\"%s\").", netname);
@@ -197,51 +197,55 @@ static void parse_net_constants(VFileLine* fl, struct VParseHashElem nets[][3]) 
 
 static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
     if (GRAMMARP->m_cellParam) {
-		// Stack them until we create the instance itself
-		GRAMMARP->m_pinStack.push_back(VParseGPin(fl, name, expr, GRAMMARP->pinNum()));
+	// Stack them until we create the instance itself
+	GRAMMARP->m_pinStack.push_back(VParseGPin(fl, name, expr, GRAMMARP->pinNum()));
     } else {
-		if (GRAMMARP->m_portStack.empty()) {
-			string netname;
-			if (GRAMMARP->m_portStack_net_name.empty()) {
-				netname = expr;
-			} else {
-				netname = GRAMMARP->m_portStack_net_name;
-				GRAMMARP->m_portStack_net_name.clear();
-			}
-			size_t elem_cnt = GRAMMARP->m_portStack_net_msb.empty() ? 1 : 3;
-			struct VParseHashElem nets[elem_cnt];
-			// These assignments could be prettified with C++11
-			nets[NETNAME].key = "netname";
-			nets[NETNAME].val_type = VParseHashElem::ELEM_STR;
-			nets[NETNAME].val_str = netname.c_str();
-			if (elem_cnt > 1) {
-				nets[MSB].key = "msb";
-				nets[MSB].val_type = VParseHashElem::ELEM_STR;
-				nets[MSB].val_str = GRAMMARP->m_portStack_net_msb.c_str();
-				nets[LSB].key = "lsb";
-				nets[LSB].val_type = VParseHashElem::ELEM_STR;
-				nets[LSB].val_str = GRAMMARP->m_portStack_net_lsb.c_str();
-			}
-			PARSEP->pinCb(fl, name, 1, elem_cnt, &nets[0], GRAMMARP->pinNum());
-			if (elem_cnt > 1) {
-				GRAMMARP->m_portStack_net_msb.clear();
-				GRAMMARP->m_portStack_net_lsb.clear();
-			}
+	if (!PARSEP->usePinSelects()) {
+	    PARSEP->pinCb(fl, name, expr, GRAMMARP->pinNum());
+	} else {
+	    if (GRAMMARP->m_portStack.empty()) {
+		string netname;
+		if (GRAMMARP->m_portStack_net_name.empty()) {
+		    netname = expr;
 		} else {
-			// Connection with multiple pins was parsed completely.
-			// There might be one net left in the pipe...
-			if (GRAMMARP->m_portStack_net_valid) {
-				GRAMMARP->m_portStack.push_front(VParseNet(GRAMMARP->m_portStack_net_name, GRAMMARP->m_portStack_net_msb, GRAMMARP->m_portStack_net_lsb));
-			}
-
-			unsigned int arraycnt = GRAMMARP->m_portStack.size();
-			struct VParseHashElem nets[arraycnt][3] = {0};
-			parse_net_constants(fl, nets);
-			PARSEP->pinCb(fl, name, arraycnt, 3, &nets[0][0], GRAMMARP->pinNum());
+		    netname = GRAMMARP->m_portStack_net_name;
+		    GRAMMARP->m_portStack_net_name.clear();
 		}
-		GRAMMARP->m_portStack_net_valid = 0;
-		GRAMMARP->m_portStack.clear();
+		size_t elem_cnt = GRAMMARP->m_portStack_net_msb.empty() ? 1 : 3;
+		struct VParseHashElem nets[elem_cnt];
+		// These assignments could be prettified with C++11
+		nets[NETNAME].key = "netname";
+		nets[NETNAME].val_type = VParseHashElem::ELEM_STR;
+		nets[NETNAME].val_str = netname.c_str();
+		if (elem_cnt > 1) {
+		    nets[MSB].key = "msb";
+		    nets[MSB].val_type = VParseHashElem::ELEM_STR;
+		    nets[MSB].val_str = GRAMMARP->m_portStack_net_msb.c_str();
+		    nets[LSB].key = "lsb";
+		    nets[LSB].val_type = VParseHashElem::ELEM_STR;
+		    nets[LSB].val_str = GRAMMARP->m_portStack_net_lsb.c_str();
+		}
+		PARSEP->pinselectsCb(fl, name, 1, elem_cnt, &nets[0], GRAMMARP->pinNum());
+		if (elem_cnt > 1) {
+		    GRAMMARP->m_portStack_net_msb.clear();
+		    GRAMMARP->m_portStack_net_lsb.clear();
+		}
+	    } else {
+		// Connection with multiple pins was parsed completely.
+		// There might be one net left in the pipe...
+		if (GRAMMARP->m_portStack_net_valid) {
+		    GRAMMARP->m_portStack.push_front(VParseNet(GRAMMARP->m_portStack_net_name, GRAMMARP->m_portStack_net_msb, GRAMMARP->m_portStack_net_lsb));
+		}
+
+		unsigned int arraycnt = GRAMMARP->m_portStack.size();
+		struct VParseHashElem nets[arraycnt][3] = {0};
+		parse_net_constants(fl, nets);
+		PARSEP->pinselectsCb(fl, name, arraycnt, 3, &nets[0][0], GRAMMARP->pinNum());
+	    }
+	    GRAMMARP->m_portStack_net_valid = 0;
+	    GRAMMARP->m_portStack.clear();
 	}
+    }
 }
 
 static void PINPARAMS() {

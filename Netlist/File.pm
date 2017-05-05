@@ -332,6 +332,10 @@ sub parampin {
 }
 
 sub pin {
+    return $_[0]->pinselects(@_);
+}
+
+sub pinselects {
     my $self = shift;
     my $pin = shift;
     my $nets = shift;
@@ -339,17 +343,29 @@ sub pin {
     my $hasnamedports = (($pin||'') ne '');
     $pin = "pin".$number if !$hasnamedports;
 
-    print "   Pin $pin  $number \n" if $Verilog::Netlist::Debug;
+    my $net_cnt = scalar($nets);
+    print "   Pin $pin  $number (connected to $net_cnt nets) \n" if $Verilog::Netlist::Debug;
     my $cellref = $self->{cellref};
     if (!$cellref) {
-	return $self->error ("PIN outside of cell definition");
+	return $self->error ("PIN outside of cell definition", $pin);
     }
-    my $pinref = $cellref->new_pin (name=>$pin,
-				    portname=>$pin,
-				    portnumber=>$number,
-				    pinnamed=>$hasnamedports,
-				    filename=>$self->filename, lineno=>$self->lineno,
-				    netnames=>$nets, );
+
+    my %params = (
+	name=>$pin,
+	portname=>$pin,
+	portnumber=>$number,
+	pinnamed=>$hasnamedports,
+	filename=>$self->filename,
+	lineno=>$self->lineno,
+    );
+
+    if ($self->{use_bitselects}) {
+	$params{netnames} = $nets;
+    } else {
+	$params{netname} = $nets;
+    }
+
+    my $pinref = $cellref->new_pin (%params);
     # If any pin uses call-by-name, then all are assumed to use call-by-name
     $cellref->byorder(1) if !$hasnamedports;
     $self->{_cmtpre} = undef;
