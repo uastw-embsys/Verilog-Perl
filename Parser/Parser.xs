@@ -92,6 +92,7 @@ public:
         bool m_useCb_package:1;
         bool m_useCb_parampin:1;
         bool m_useCb_pin:1;
+        bool m_useCb_pinselects:1;
         bool m_useCb_port:1;
         bool m_useCb_preproc:1;
         bool m_useCb_program:1;
@@ -107,8 +108,8 @@ public:
     void cbFileline(VFileLine* filelinep) { m_cbFilelinep = filelinep; }
 
     VParserXs(VFileLine* filelinep, av* symsp,
-	      bool sigparser, bool useUnreadback, bool useProtected)
-	: VParse(filelinep, symsp, sigparser, useUnreadback, useProtected)
+	      bool sigparser, bool useUnreadback, bool useProtected, bool useBitselects)
+	: VParse(filelinep, symsp, sigparser, useUnreadback, useProtected, useBitselects)
 	, m_cbFilelinep(filelinep)
 	{ set_cb_use(); }
     virtual ~VParserXs();
@@ -144,6 +145,7 @@ public:
        m_useCb_package = true;
        m_useCb_parampin = true;
        m_useCb_pin = true;
+       m_useCb_pinselects = true;
        m_useCb_port = true;
        m_useCb_preproc = true;
        m_useCb_program = true;
@@ -189,7 +191,8 @@ public:
     virtual void moduleCb(VFileLine* fl, const string& kwd, const string& name, bool, bool celldefine);
     virtual void packageCb(VFileLine* fl, const string& kwd, const string& name);
     virtual void parampinCb(VFileLine* fl, const string& name, const string& conn, int index);
-    virtual void pinCb(VFileLine* fl, const string& name, unsigned int arraycnt, unsigned int elemcnt, struct VParseHashElem *conn, int index);
+    virtual void pinCb(VFileLine* fl, const string& name, const string& conn, int index);
+    virtual void pinselectsCb(VFileLine* fl, const string& name, unsigned int arraycnt, unsigned int elemcnt, struct VParseHashElem *conns, int index);
     virtual void portCb(VFileLine* fl, const string& name, const string& objof, const string& direction, const string& data_type
 	, const string& array, int index);
     virtual void programCb(VFileLine* fl, const string& kwd, const string& name);
@@ -343,14 +346,14 @@ MODULE = Verilog::Parser  PACKAGE = Verilog::Parser
 #// self->_new (class, sigparser)
 
 static VParserXs *
-VParserXs::_new (SV* SELF, AV* symsp, bool sigparser, bool useUnreadback, bool useProtected)
+VParserXs::_new (SV* SELF, AV* symsp, bool sigparser, bool useUnreadback, bool useProtected, bool useBitselects)
 PROTOTYPE: $$$$
 CODE:
 {
     if (CLASS) {}  /* Prevent unused warning */
     if (!SvROK(SELF)) { warn("${Package}::$func_name() -- SELF is not a hash reference"); }
     VFileLineParseXs* filelinep = new VFileLineParseXs(NULL/*ok,for initial*/);
-    VParserXs* parserp = new VParserXs(filelinep, symsp, sigparser, useUnreadback, useProtected);
+    VParserXs* parserp = new VParserXs(filelinep, symsp, sigparser, useUnreadback, useProtected, useBitselects);
     filelinep->setParser(parserp);
     parserp->m_self = SvRV(SELF);
     RETVAL = parserp;

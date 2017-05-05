@@ -25,7 +25,8 @@ use base qw(Verilog::SigParser);
 BEGIN {
     # Make functions like this:
     #  sub attribute {	$_[0]->_common('module', @_); }
-    foreach my $cb (Verilog::SigParser::callback_names(),
+    # PinSelects() is used by SigParser on default instead of Pin() which therefore would be missing in the coverage.
+    foreach my $cb (grep { $_ ne "pin" } Verilog::SigParser::callback_names(),
 		    'comment') {
 	$_TestCallbacks{$cb} = 1;
 	my $func = ' sub __CB__ { $_[0]->_common("__CB__", @_); } ';

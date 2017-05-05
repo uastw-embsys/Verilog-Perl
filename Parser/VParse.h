@@ -66,6 +66,7 @@ private:
 
     bool	m_useUnreadback;///< Need m_unreadback tracking
     bool	m_useProtected;	///< Need `protected tracking
+    bool	m_useBitselects;///< Need bit-select parsing
     string	m_unreadback;	///< Otherwise unprocessed whitespace before current token
     deque<string> m_buffers;	///< Buffer of characters to process
 
@@ -122,7 +123,7 @@ private:
 public:
     // CONSTRUCTORS
     VParse(VFileLine* filelinep, av* symsp,
-	   bool sigParser, bool useUnreadbackFlag, bool useProtected);
+	   bool sigParser, bool useUnreadbackFlag, bool useProtected, bool useBitselects);
     virtual ~VParse();
 
     // ACCESSORS
@@ -136,6 +137,7 @@ public:
     void callbackMasterEna(bool flag) { m_callbackMasterEna=flag; }
     bool callbackMasterEna() const { return m_callbackMasterEna; }
     bool useProtected() const { return m_useProtected; }
+    bool usePinSelects() const { return m_useBitselects; }
 
     VFileLine* inFilelinep() const;		///< File/Line number for last callback
     void inFileline(const string& filename, int lineno) { m_inFilelinep = m_inFilelinep->create(filename, lineno); }
@@ -192,7 +194,8 @@ public:
     virtual void moduleCb(VFileLine* fl, const string& kwd, const string& name, bool, bool celldefine) = 0;
     virtual void packageCb(VFileLine* fl, const string& kwd, const string& name) = 0;
     virtual void parampinCb(VFileLine* fl, const string& name, const string& conn, int index) = 0;
-    virtual void pinCb(VFileLine* fl, const string& name, unsigned int arraycnt, unsigned int elemcnt, struct VParseHashElem *conn, int index) = 0;
+    virtual void pinCb(VFileLine* fl, const string& name, const string& conn, int index) = 0;
+    virtual void pinselectsCb(VFileLine* fl, const string& name, unsigned int arraycnt, unsigned int elemcnt, struct VParseHashElem *conns, int index) = 0;
     virtual void portCb(VFileLine* fl, const string& name, const string& objof, const string& direction, const string& data_type
 	, const string& array, int index) = 0;
     virtual void programCb(VFileLine* fl, const string& kwd, const string& name) = 0;

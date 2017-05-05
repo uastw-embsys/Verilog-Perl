@@ -58,6 +58,7 @@ sub new {
 		use_vars => 1,
 		use_unreadback => 1,   # Backward compatibility
 		use_protected => 1,   # Backward compatibility
+		use_bitselects => 0,   # Backward compatibility
 		use_std => undef,	# Undef = silent
 		#use_cb_{callback-name} => 0/1
 		#
@@ -72,6 +73,7 @@ sub new {
 		$self->{_sigparser},
 		$self->{use_unreadback},
 		$self->{use_protected},
+		$self->{use_bitselects},
 		);
 
     $self->{use_cb_contassign} = $self->{use_vars} if !exists $self->{use_cb_contassign};
@@ -342,6 +344,9 @@ method, which may improve performance.
 Adding "use_vars => 0" will disable contassign, defparam, pin, var and port
 callbacks to Verilog::SigParser.  This can greatly speed parsing when
 variable and interconnect information is not required.
+
+Adding "use_bitselects => 1" will add parsing and interpreting of
+bit-selects in busses.
 
 =item $parser->callback_names ()
 
