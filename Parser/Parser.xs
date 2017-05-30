@@ -192,7 +192,7 @@ public:
     virtual void packageCb(VFileLine* fl, const string& kwd, const string& name);
     virtual void parampinCb(VFileLine* fl, const string& name, const string& conn, int index);
     virtual void pinCb(VFileLine* fl, const string& name, const string& conn, int index);
-    virtual void pinselectsCb(VFileLine* fl, const string& name, unsigned int arraycnt, unsigned int elemcnt, struct VParseHashElem *conns, int index);
+    virtual void pinselectsCb(VFileLine* fl, const string& name, unsigned int arraycnt2, unsigned int elemcnt2, struct VParseHashElem *conns2, int index);
     virtual void portCb(VFileLine* fl, const string& name, const string& objof, const string& direction, const string& data_type
 	, const string& array, int index);
     virtual void programCb(VFileLine* fl, const string& kwd, const string& name);
