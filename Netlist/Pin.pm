@@ -85,8 +85,9 @@ sub netname {
     return @{$_[0]->_netnames}[0]->{netname};
 }
 sub net {
-    return undef if !defined($_[0]->_nets);
-    return @{$_[0]->_nets}[0];
+    my $nets = $_[0]->_nets;
+    return undef if !defined($nets);
+    return @{$nets}[0]->{net};
 }
 
 sub nets {
