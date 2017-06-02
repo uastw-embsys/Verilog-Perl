@@ -99,7 +99,9 @@ sub find_port_by_index {
     # @{$self->_portsordered}[$myindex-1] returns the name of
     # the port in the module at this index.  Then, this is
     # used to find the port reference via the port hash
-    return $self->_ports->{@{$self->_portsordered}[$myindex-1]};
+    my $name = @{$self->_portsordered}[$myindex-1];
+    return undef if !$name;
+    return $self->_ports->{$name};
 }
 sub find_cell {
     my $self = shift;
