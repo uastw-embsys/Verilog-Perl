@@ -83,10 +83,10 @@ public: // Only for VParseBison
     string	m_cellMod;
     bool	m_cellParam;
 
-    bool	m_portStack_net_valid;
-    string	m_portStack_net_name;
-    string	m_portStack_net_msb;
-    string	m_portStack_net_lsb;
+    bool	m_portNextNet_valid;
+    string	m_portNextNet_name;
+    string	m_portNextNet_msb;
+    string	m_portNextNet_lsb;
     bool	m_within_pin;
     bool	m_within_inst;
 
@@ -108,7 +108,7 @@ public:
 	s_grammarp = this;
 	m_pinNum = 0;
 	m_cellParam = false;
-	m_portStack_net_valid = false;
+	m_portNextNet_valid = false;
 	m_within_inst = false;
 	m_within_pin = false;
     }

@@ -205,13 +205,13 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 	} else {
 	    if (GRAMMARP->m_portStack.empty()) {
 		string netname;
-		if (GRAMMARP->m_portStack_net_name.empty()) {
+		if (GRAMMARP->m_portNextNet_name.empty()) {
 		    netname = expr;
 		} else {
-		    netname = GRAMMARP->m_portStack_net_name;
-		    GRAMMARP->m_portStack_net_name.clear();
+		    netname = GRAMMARP->m_portNextNet_name;
+		    GRAMMARP->m_portNextNet_name.clear();
 		}
-		size_t elem_cnt = GRAMMARP->m_portStack_net_msb.empty() ? 1 : 3;
+		size_t elem_cnt = GRAMMARP->m_portNextNet_msb.empty() ? 1 : 3;
 		struct VParseHashElem nets[elem_cnt];
 		// These assignments could be prettified with C++11
 		nets[NETNAME].key = "netname";
@@ -220,21 +220,21 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 		if (elem_cnt > 1) {
 		    nets[MSB].key = "msb";
 		    nets[MSB].val_type = VParseHashElem::ELEM_STR;
-		    nets[MSB].val_str = GRAMMARP->m_portStack_net_msb.c_str();
+		    nets[MSB].val_str = GRAMMARP->m_portNextNet_msb.c_str();
 		    nets[LSB].key = "lsb";
 		    nets[LSB].val_type = VParseHashElem::ELEM_STR;
-		    nets[LSB].val_str = GRAMMARP->m_portStack_net_lsb.c_str();
+		    nets[LSB].val_str = GRAMMARP->m_portNextNet_lsb.c_str();
 		}
 		PARSEP->pinselectsCb(fl, name, 1, elem_cnt, &nets[0], GRAMMARP->pinNum());
 		if (elem_cnt > 1) {
-		    GRAMMARP->m_portStack_net_msb.clear();
-		    GRAMMARP->m_portStack_net_lsb.clear();
+		    GRAMMARP->m_portNextNet_msb.clear();
+		    GRAMMARP->m_portNextNet_lsb.clear();
 		}
 	    } else {
 		// Connection with multiple pins was parsed completely.
 		// There might be one net left in the pipe...
-		if (GRAMMARP->m_portStack_net_valid) {
-		    GRAMMARP->m_portStack.push_front(VParseNet(GRAMMARP->m_portStack_net_name, GRAMMARP->m_portStack_net_msb, GRAMMARP->m_portStack_net_lsb));
+		if (GRAMMARP->m_portNextNet_valid) {
+		    GRAMMARP->m_portStack.push_front(VParseNet(GRAMMARP->m_portNextNet_name, GRAMMARP->m_portNextNet_msb, GRAMMARP->m_portNextNet_lsb));
 		}
 
 		unsigned int arraycnt = GRAMMARP->m_portStack.size();
@@ -242,7 +242,7 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 		parse_net_constants(fl, nets);
 		PARSEP->pinselectsCb(fl, name, arraycnt, 3, &nets[0][0], GRAMMARP->pinNum());
 	    }
-	    GRAMMARP->m_portStack_net_valid = 0;
+	    GRAMMARP->m_portNextNet_valid = 0;
 	    GRAMMARP->m_portStack.clear();
 	}
     }
@@ -262,18 +262,18 @@ static void PORTNET(VFileLine* fl, const string& name) {
 	if (!GRAMMARP->m_within_inst)
 	    return;
 
-	GRAMMARP->m_portStack_net_valid = 1;
-	GRAMMARP->m_portStack_net_name = name;
-	GRAMMARP->m_portStack_net_msb.clear();
-	GRAMMARP->m_portStack_net_lsb.clear();
+	GRAMMARP->m_portNextNet_valid = 1;
+	GRAMMARP->m_portNextNet_name = name;
+	GRAMMARP->m_portNextNet_msb.clear();
+	GRAMMARP->m_portNextNet_lsb.clear();
 }
 
 static void PORTRANGE(const string& msb, const string& lsb) {
 	if (!GRAMMARP->m_within_inst)
 	    return;
 
-	GRAMMARP->m_portStack_net_msb = msb;
-	GRAMMARP->m_portStack_net_lsb = lsb;
+	GRAMMARP->m_portNextNet_msb = msb;
+	GRAMMARP->m_portNextNet_lsb = lsb;
 }
 
 static void PIN_CONCAT_APPEND(const string& expr) {
@@ -281,12 +281,12 @@ static void PIN_CONCAT_APPEND(const string& expr) {
 	    return;
 
 	// Only while not within a valid net term the expression is part of a replication constant.
-	if (!GRAMMARP->m_portStack_net_valid) {
+	if (!GRAMMARP->m_portNextNet_valid) {
 		GRAMMARP->m_portStack.push_front(VParseNet(expr));
 	} else {
-		GRAMMARP->m_portStack.push_front(VParseNet(GRAMMARP->m_portStack_net_name, GRAMMARP->m_portStack_net_msb, GRAMMARP->m_portStack_net_lsb));
+		GRAMMARP->m_portStack.push_front(VParseNet(GRAMMARP->m_portNextNet_name, GRAMMARP->m_portNextNet_msb, GRAMMARP->m_portNextNet_lsb));
 	}
-	GRAMMARP->m_portStack_net_valid = 0;
+	GRAMMARP->m_portNextNet_valid = 0;
 }
 
 /* Yacc */
@@ -2217,7 +2217,7 @@ cellpinList:
 	;
 
 cellpinItList:			// IEEE: list_of_port_connections + list_of_parameter_assignmente
-		{ GRAMMARP->m_portStack_net_name.clear(); }	cellpinItemE	{ }
+		{ GRAMMARP->m_portNextNet_name.clear(); }	cellpinItemE	{ }
 	|	cellpinItList ',' cellpinItemE		{ }
 	;
 
