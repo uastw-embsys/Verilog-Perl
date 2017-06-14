@@ -332,7 +332,10 @@ sub parampin {
 }
 
 sub pin {
-    return $_[0]->pinselects(@_);
+    my $self = shift;
+    if (!$self->{use_bitselects}) {
+	$self->pinselects(@_);
+    }
 }
 
 sub pinselects {

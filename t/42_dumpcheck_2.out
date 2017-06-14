@@ -53,7 +53,6 @@ Module:pinorder4  Kwd:module  File:verilog/pinorder.v
               Net:d_o  I  DeclT:net  NetT:wire  DataT:  Array:
     Pin:z  Net:a_i[0]
               Port:z  Dir:in  DataT:  Array:
-              Net:a_i  I  DeclT:net  NetT:wire  DataT:[7:0]  Array:  7:0
   Cell:foo3  is-a:foo
             Module:foo  Kwd:module  File:verilog/pinorder.v
     Pin:abcconst  Net:3'h0

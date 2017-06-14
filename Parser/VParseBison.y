@@ -200,9 +200,8 @@ static void PINDONE(VFileLine* fl, const string& name, const string& expr) {
 	// Stack them until we create the instance itself
 	GRAMMARP->m_pinStack.push_back(VParseGPin(fl, name, expr, GRAMMARP->pinNum()));
     } else {
-	if (!PARSEP->usePinSelects()) {
-	    PARSEP->pinCb(fl, name, expr, GRAMMARP->pinNum());
-	} else {
+	PARSEP->pinCb(fl, name, expr, GRAMMARP->pinNum());
+	if (PARSEP->usePinSelects()) {
 	    if (GRAMMARP->m_portStack.empty()) {
 		string netname;
 		if (GRAMMARP->m_portNextNet_name.empty()) {
