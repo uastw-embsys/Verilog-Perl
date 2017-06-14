@@ -33,7 +33,7 @@ using namespace std;
 #include "VAst.h"
 
 //============================================================================
-// Container of things to put out later
+// Containers of things to put out later
 
 struct VParseGPin {
     VFileLine* m_fl;
@@ -42,6 +42,16 @@ struct VParseGPin {
     int m_number;
     VParseGPin(VFileLine* fl, const string& name, const string& conn, int number)
 	: m_fl(fl), m_name(name), m_conn(conn), m_number(number) {}
+};
+
+struct VParseNet {
+    string m_name;
+    string m_msb;
+    string m_lsb;
+    VParseNet(const string& net, const string& msb, const string& lsb)
+	: m_name(net), m_msb(msb), m_lsb(lsb) {}
+    VParseNet(const string& net)
+	: m_name(net), m_msb(""), m_lsb("") {}
 };
 
 //============================================================================
@@ -73,8 +83,15 @@ public: // Only for VParseBison
     string	m_cellMod;
     bool	m_cellParam;
 
+    bool	m_portNextNet_valid;
+    string	m_portNextNet_name;
+    string	m_portNextNet_msb;
+    string	m_portNextNet_lsb;
+    bool	m_within_pin;
+    bool	m_within_inst;
 
-    deque<VParseGPin> m_pinStack;
+    deque<VParseGPin>		m_pinStack;
+    deque<VParseNet>	    m_portStack;
 
 public: // But for internal use only
     static VParseGrammar* staticGrammarp() { return s_grammarp; }
@@ -91,6 +108,9 @@ public:
 	s_grammarp = this;
 	m_pinNum = 0;
 	m_cellParam = false;
+	m_portNextNet_valid = false;
+	m_within_inst = false;
+	m_within_pin = false;
     }
     ~VParseGrammar() {
 	s_grammarp = NULL;

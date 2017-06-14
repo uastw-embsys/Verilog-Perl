@@ -333,23 +333,42 @@ sub parampin {
 
 sub pin {
     my $self = shift;
+    if (!$self->{use_bitselects}) {
+	$self->pinselects(@_);
+    }
+}
+
+sub pinselects {
+    my $self = shift;
     my $pin = shift;
-    my $net = shift;
+    my $nets = shift;
     my $number = shift;
     my $hasnamedports = (($pin||'') ne '');
     $pin = "pin".$number if !$hasnamedports;
 
-    print "   Pin $pin  $net $number \n" if $Verilog::Netlist::Debug;
+    my $net_cnt = scalar($nets);
+    print "   Pin $pin  $number (connected to $net_cnt nets) \n" if $Verilog::Netlist::Debug;
     my $cellref = $self->{cellref};
     if (!$cellref) {
-	return $self->error ("PIN outside of cell definition", $net);
+	return $self->error ("PIN outside of cell definition", $pin);
     }
-    my $pinref = $cellref->new_pin (name=>$pin,
-				    portname=>$pin,
-				    portnumber=>$number,
-				    pinnamed=>$hasnamedports,
-				    filename=>$self->filename, lineno=>$self->lineno,
-				    netname=>$net, );
+
+    my %params = (
+	name=>$pin,
+	portname=>$pin,
+	portnumber=>$number,
+	pinnamed=>$hasnamedports,
+	filename=>$self->filename,
+	lineno=>$self->lineno,
+    );
+
+    if ($self->{use_bitselects}) {
+	$params{netnames} = $nets;
+    } else {
+	$params{netname} = $nets;
+    }
+
+    my $pinref = $cellref->new_pin (%params);
     # If any pin uses call-by-name, then all are assumed to use call-by-name
     $cellref->byorder(1) if !$hasnamedports;
     $self->{_cmtpre} = undef;
@@ -463,6 +482,7 @@ sub read {
 	  metacomment=>($params{metacomment} || $netlist->{metacomment}),
 	  keep_comments => $keep_cmt,
 	  use_vars=>($params{use_vars} || $netlist->{use_vars}),
+	  use_bitselects=>($params{use_bitselects} || $netlist->{use_bitselects}),
 	  preproc=>($params{preproc} || $netlist->{preproc}),
 	  # Callbacks we need; disable unused for speed
 	  use_cb_attribute => 1,

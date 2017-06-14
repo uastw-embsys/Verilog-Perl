@@ -34,6 +34,28 @@ BEGIN {
     }
 }
 
+sub _serialize {
+    my ($in, $outref) = @_;
+    if (ref($in) eq "ARRAY") {
+	$$outref .= '[';
+	foreach (@{$in}) {
+	    _serialize($_, $outref);
+	    $$outref .= ',' if \$_ != \@{$in}[-1];
+	}
+	$$outref .= ']';
+    } elsif (ref($in) eq "HASH") {
+	$$outref .= '{';
+	my @keys = sort keys %$in;
+	for my $k (@keys) {
+	    $$outref .= "'$k'=>\"" . $$in{$k} .'"';
+	    $$outref .= ',' if \$k != \$keys[-1];
+	}
+	$$outref .= '}';
+    } else {
+	$$outref .= "$in";
+    }
+}
+
 sub _common {
     my $self = shift;
     my $what = shift;
@@ -42,7 +64,15 @@ sub _common {
 
     $_TestCoverage{$what}++;
     my $args="";
-    foreach (@args) { $args .= defined $_ ? " '$_'" : " undef"; }
+    foreach (@args) {
+	if (defined $_) {
+	    $args .= " \'";
+	    _serialize($_, \$args);
+	    $args .= "\'";
+	} else {
+	    $args .= " undef";
+	}
+    }
     $self->{dump_fh}->printf("%s:%03d: %s %s\n",
 			     $self->filename, $self->lineno,
 			     uc $what,
@@ -100,7 +130,8 @@ sub read_test {
     my $pp = Verilog::Preproc->new(keep_comments=>1,);
 
     my $parser = new MyParser (dump_fh => $dump_fh,
-			       metacomment=>{synopsys=>1},);
+			       metacomment=>{synopsys=>1},
+			       use_bitselects => 1,);
 
     if ($ENV{VERILOG_TEST_DEBUG}) {  # For example, VERILOG_TEST_DEBUG=9
 	$parser->debug($ENV{VERILOG_TEST_DEBUG});

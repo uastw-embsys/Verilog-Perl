@@ -44,6 +44,12 @@ extern "C" {
 # undef open	/* Perl 64 bit on solaris has a nasty hack that redefines open */
 #endif
 
+// This is a global constant pointer initialized to its own address to
+// produce a unique address to distinguish hashes (pointers to
+// struct VParseHashElem) from the strings (character pointers) used by
+// callbackgen in its variadic parameters for VParserXs::call().
+static void *hasharray_param = &hasharray_param;
+
 class VFileLineParseXs;
 
 #//**********************************************************************
@@ -86,6 +92,7 @@ public:
         bool m_useCb_package:1;
         bool m_useCb_parampin:1;
         bool m_useCb_pin:1;
+        bool m_useCb_pinselects:1;
         bool m_useCb_port:1;
         bool m_useCb_preproc:1;
         bool m_useCb_program:1;
@@ -101,8 +108,8 @@ public:
     void cbFileline(VFileLine* filelinep) { m_cbFilelinep = filelinep; }
 
     VParserXs(VFileLine* filelinep, av* symsp,
-	      bool sigparser, bool useUnreadback, bool useProtected)
-	: VParse(filelinep, symsp, sigparser, useUnreadback, useProtected)
+	      bool sigparser, bool useUnreadback, bool useProtected, bool useBitselects)
+	: VParse(filelinep, symsp, sigparser, useUnreadback, useProtected, useBitselects)
 	, m_cbFilelinep(filelinep)
 	{ set_cb_use(); }
     virtual ~VParserXs();
@@ -138,6 +145,7 @@ public:
        m_useCb_package = true;
        m_useCb_parampin = true;
        m_useCb_pin = true;
+       m_useCb_pinselects = true;
        m_useCb_port = true;
        m_useCb_preproc = true;
        m_useCb_program = true;
@@ -184,6 +192,7 @@ public:
     virtual void packageCb(VFileLine* fl, const string& kwd, const string& name);
     virtual void parampinCb(VFileLine* fl, const string& name, const string& conn, int index);
     virtual void pinCb(VFileLine* fl, const string& name, const string& conn, int index);
+    virtual void pinselectsCb(VFileLine* fl, const string& name, unsigned int arraycnt2, unsigned int elemcnt2, struct VParseHashElem *conns2, int index);
     virtual void portCb(VFileLine* fl, const string& name, const string& objof, const string& direction, const string& data_type
 	, const string& array, int index);
     virtual void programCb(VFileLine* fl, const string& kwd, const string& name);
@@ -263,13 +272,45 @@ void VParserXs::call (
 
 	while (params--) {
 	    char* text = va_arg(ap, char *);
-	    SV* sv;
-	    if (text) {
-		sv = sv_2mortal(newSVpv (text, 0));
+	    if (text != NULL) {
+		if (text == hasharray_param) {
+		    // First hasharray param defines number of array elements
+		    unsigned int arrcnt = va_arg(ap, unsigned int);
+		    AV* av = newAV();
+		    av_extend(av, arrcnt);
+
+		    // Second hasharray param defines how many keys are within one hash
+		    unsigned int elemcnt = va_arg(ap, unsigned int);
+		    // Followed by the hash array pointer...
+		    struct VParseHashElem (*arr)[elemcnt] = va_arg(ap, struct VParseHashElem (*)[elemcnt]);
+		    for (unsigned int i = 0; i < arrcnt; i++) {
+			HV* hv = newHV();
+			struct VParseHashElem *elem = arr[i];
+			for (unsigned int j = 0; j < elemcnt; j++) {
+			    if (elem[j].key == NULL)
+				continue;
+			    SV* sv;
+			    switch (elem[j].val_type) {
+				case VParseHashElem::ELEM_INT:
+				    sv = newSViv(elem[j].val_int);
+				    break;
+				case VParseHashElem::ELEM_STR:
+				default:
+				    sv = newSVpv(elem[j].val_str, 0);
+				    break;
+			    }
+			    hv_store(hv, elem[j].key, strlen(elem[j].key), sv, 0);
+			}
+			av_store(av, i, newRV_noinc((SV*)hv));
+			elem++;
+		    }
+		    XPUSHs(newRV_noinc(sv_2mortal((SV*)av)));
+		} else {
+		    XPUSHs(sv_2mortal(newSVpv (text, 0)));
+		}
 	    } else {
-		sv = &PL_sv_undef;
+		XPUSHs(&PL_sv_undef);
 	    }
-	    XPUSHs(sv);			/* token */
 	}
 
 	PUTBACK;			/* make local stack pointer global */
@@ -305,14 +346,14 @@ MODULE = Verilog::Parser  PACKAGE = Verilog::Parser
 #// self->_new (class, sigparser)
 
 static VParserXs *
-VParserXs::_new (SV* SELF, AV* symsp, bool sigparser, bool useUnreadback, bool useProtected)
+VParserXs::_new (SV* SELF, AV* symsp, bool sigparser, bool useUnreadback, bool useProtected, bool useBitselects)
 PROTOTYPE: $$$$
 CODE:
 {
     if (CLASS) {}  /* Prevent unused warning */
     if (!SvROK(SELF)) { warn("${Package}::$func_name() -- SELF is not a hash reference"); }
     VFileLineParseXs* filelinep = new VFileLineParseXs(NULL/*ok,for initial*/);
-    VParserXs* parserp = new VParserXs(filelinep, symsp, sigparser, useUnreadback, useProtected);
+    VParserXs* parserp = new VParserXs(filelinep, symsp, sigparser, useUnreadback, useProtected, useBitselects);
     filelinep->setParser(parserp);
     parserp->m_self = SvRV(SELF);
     RETVAL = parserp;
