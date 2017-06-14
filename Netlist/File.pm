@@ -482,6 +482,7 @@ sub read {
 	  metacomment=>($params{metacomment} || $netlist->{metacomment}),
 	  keep_comments => $keep_cmt,
 	  use_vars=>($params{use_vars} || $netlist->{use_vars}),
+	  use_bitselects=>($params{use_bitselects} || $netlist->{use_bitselects}),
 	  preproc=>($params{preproc} || $netlist->{preproc}),
 	  # Callbacks we need; disable unused for speed
 	  use_cb_attribute => 1,
