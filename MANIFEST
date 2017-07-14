@@ -94,7 +94,9 @@ t/40_netlist.t
 t/41_example.t
 t/42_dumpcheck.t
 t/42_dumpcheck_1.out
+t/42_dumpcheck_1_ps.out
 t/42_dumpcheck_1v.out
+t/42_dumpcheck_1v_ps.out
 t/42_dumpcheck_2.out
 t/42_dumpcheck_2e.out
 t/42_dumpcheck_2v.out
