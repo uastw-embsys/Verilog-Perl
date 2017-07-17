@@ -8,7 +8,7 @@
 use strict;
 use Test::More;
 
-BEGIN { plan tests => 2 }
+BEGIN { plan tests => 3 }
 BEGIN { require "./t/test_utils.pl"; }
 
 #$Verilog::Netlist::Debug = 1;
@@ -40,7 +40,10 @@ ok(1, "use");
     }
 
     $nl->link;
-    print $nl->verilog_text;
+    my $fh = IO::File->new('test_dir/44_create.dmp', "w") or die "%Error: $! creating dump file,";
+    print $fh $nl->verilog_text;
+    $fh->close;
+    ok(files_identical("test_dir/44_create.dmp", "t/44_create.out"));
 }
 
 ok(1, "done");
