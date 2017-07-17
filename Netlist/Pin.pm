@@ -209,7 +209,7 @@ sub lint {
     if (!$self->port && $self->submod) {
         $self->error ($self,"Port not found in ",$self->submod->keyword," ",$self->submod->name,": ",$self->portname,"\n");
     }
-    if ($self->port && $self->_nets) {
+    if ($self->port && $self->nets) {
 	if (!$self->type_match) {
 	    my $nettype = $self->net->data_type;
 	    my $porttype = $self->port->data_type;
@@ -241,7 +241,7 @@ sub verilog_text {
     } elsif ($self->pinnamed) {
 	$inst = ".".$self->name."(";
     } else { # not by name, and unlinked
-	return $self->{_netnames};
+	$inst = ".".$self->portname."(";
     }
     my $net_cnt = $self->netnames;
     if ($net_cnt >= 2) {
@@ -278,11 +278,9 @@ sub dump {
     if ($self->port) {
 	$self->port->dump($indent+10, 'norecurse');
     }
-    if ($self->_nets) {
-	foreach my $net ($self->nets) {
-	    next unless $net->{net};
-	    $net->{net}->dump($indent+10, 'norecurse');
-	}
+    foreach my $net ($self->nets) {
+	next unless $net->{net};
+	$net->{net}->dump($indent+10, 'norecurse');
     }
 }
 
