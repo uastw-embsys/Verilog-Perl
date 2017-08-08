@@ -10,6 +10,7 @@ use Verilog::Netlist::Net;
 use Verilog::Netlist::Cell;
 use Verilog::Netlist::Module;
 use Verilog::Netlist::Pin;
+use Verilog::Netlist::PinSelection;
 use Verilog::Netlist::Subclass;
 use vars qw($VERSION @ISA);
 use strict;
@@ -27,7 +28,7 @@ structs('_new_base',
 	   attributes	=> '%', #'	# Misc attributes for systemperl or other processors
 	   #
 	   comment	=> '$', #'	# Comment provided by user
-	   _netnames	=> '$', #'	# Arrayref to net descriptors
+	   _netnames	=> '$', #'	# Arrayref to Verilog::Netlist::PinSelections
 	   portname 	=> '$', #'	# Port connection name
 	   portnumber   => '$', #'	# Position of name in call
 	   pinnamed 	=> '$', #'	# True if name assigned
@@ -47,11 +48,13 @@ sub new {
     my %params = (@_);
     if (defined $params{netname}) {
 	# handle legacy constructor parameter "netname"
-	$params{_netnames} = [{netname=>$params{netname}}];
+	$params{_netnames} = [new Verilog::Netlist::PinSelection($params{netname})];
 	delete $params{netname};
     } elsif (defined $params{netnames}) {
 	# remap netnames to _netnames
-	$params{_netnames} = $params{netnames};
+	foreach my $netname (@{$params{netnames}}) {
+	    push(@{$params{_netnames}}, new Verilog::Netlist::PinSelection($netname->{netname}, $netname->{msb}, $netname->{lsb}));
+	}
 	delete $params{netnames};
     }
     return $class->_new_base (%params);
@@ -117,28 +120,6 @@ sub netlist {
     return $_[0]->cell->module->netlist;
 }
 
-sub _bracketed_msb_lsb {
-    my $self = shift;
-    my $netname = shift;
-    my $out = "";
-    # Handle sized constant numbers (e.g., 7'b0) distinctively
-    # but leave unsized constants (msb/lsb undefined) alone.
-    if ($netname->{netname} =~ /^'/) {
-	$out .= $netname->{msb} + 1 if defined($netname->{msb});
-	$out .= $netname->{netname};
-    } else {
-	$out .= $netname->{netname};
-	if (defined($netname->{msb})) {
-	    if ($netname->{msb} == $netname->{lsb}) {
-		$out .= "[".$netname->{msb}."]";
-	    } else {
-		$out .= "[".$netname->{msb}.":".$netname->{lsb}."]";
-	    }
-	}
-    }
-    return $out;
-}
-
 sub _link {
     my $self = shift;
     # Note this routine is HOT
@@ -147,14 +128,14 @@ sub _link {
 	if ($self->_netnames) {
 	    my @nets = ();
 	    foreach my $netname ($self->netnames) {
-		my $net = $self->module->find_net($netname->{netname});
+		my $net = $self->module->find_net($netname->netname);
 		next if (!defined($net));
 		my ($msb, $lsb);
 		# if the parsed description includes a range, use that,
 		# else use the complete range of the underlying net.
-		if (defined($netname->{msb})) {
-		    $msb = $netname->{msb};
-		    $lsb = $netname->{lsb};
+		if (defined($netname->msb)) {
+		    $msb = $netname->msb;
+		    $lsb = $netname->lsb;
 		} else {
 		    $msb = $net->msb;
 		    $lsb = $net->lsb;
@@ -249,13 +230,13 @@ sub verilog_text {
 	my $comma = "";
 	foreach my $netname (reverse($self->netnames)) {
 	    $inst .= $comma;
-	    $inst .= $self->_bracketed_msb_lsb($netname);
+	    $inst .= $netname->bracketed_msb_lsb;
 	    $comma = ",";
 	}
 	$inst .= "}";
     } elsif ($net_cnt == 1) {
 	my @tmp = $self->netnames;
-	$inst .= $self->_bracketed_msb_lsb($tmp[0]);
+	$inst .= $tmp[0]->bracketed_msb_lsb;
     }
 
     $inst .= ")";
@@ -271,7 +252,7 @@ sub dump {
     my $comma = "";
     foreach my $netname (reverse($self->netnames)) {
 	$out .= $comma;
-	$out .= $self->_bracketed_msb_lsb($netname);
+	$out .= $netname->bracketed_msb_lsb;
 	$comma = ",";
     }
     print "$out\n";
