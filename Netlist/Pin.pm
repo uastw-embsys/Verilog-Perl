@@ -28,7 +28,7 @@ structs('_new_base',
 	   attributes	=> '%', #'	# Misc attributes for systemperl or other processors
 	   #
 	   comment	=> '$', #'	# Comment provided by user
-	   _netnames	=> '$', #'	# Arrayref to Verilog::Netlist::PinSelections
+	   _pinselects	=> '$', #'	# Arrayref to Verilog::Netlist::PinSelections
 	   portname 	=> '$', #'	# Port connection name
 	   portnumber   => '$', #'	# Position of name in call
 	   pinnamed 	=> '$', #'	# True if name assigned
@@ -48,14 +48,14 @@ sub new {
     my %params = (@_);
     if (defined $params{netname}) {
 	# handle legacy constructor parameter "netname"
-	$params{_netnames} = [new Verilog::Netlist::PinSelection($params{netname})];
+	$params{_pinselects} = [new Verilog::Netlist::PinSelection($params{netname})];
 	delete $params{netname};
-    } elsif (defined $params{netnames}) {
-	# remap netnames to _netnames
-	foreach my $netname (@{$params{netnames}}) {
-	    push(@{$params{_netnames}}, new Verilog::Netlist::PinSelection($netname->{netname}, $netname->{msb}, $netname->{lsb}));
+    } elsif (defined $params{pinselects}) {
+	# remap pinselects to _pinselects
+	foreach my $pinselect (@{$params{pinselects}}) {
+	    push(@{$params{_pinselects}}, new Verilog::Netlist::PinSelection($pinselect->{netname}, $pinselect->{msb}, $pinselect->{lsb}));
 	}
-	delete $params{netnames};
+	delete $params{pinselects};
     }
     return $class->_new_base (%params);
 }
@@ -85,8 +85,8 @@ sub delete {
 
 # Legacy accessors
 sub netname {
-    return undef if !defined($_[0]->_netnames);
-    return @{$_[0]->_netnames}[0]->{netname};
+    return undef if !defined($_[0]->_pinselects);
+    return @{$_[0]->_pinselects}[0]->{netname};
 }
 sub net {
     my $nets = $_[0]->_nets;
@@ -103,9 +103,9 @@ sub nets_sorted {
     return [] if !defined($_[0]->_nets);
     return (sort {$a->name cmp $b->name} (@{$_[0]->_nets}));
 }
-sub netnames {
-    return [] if !defined($_[0]->_netnames);
-    return @{$_[0]->_netnames};
+sub pinselects {
+    return [] if !defined($_[0]->_pinselects);
+    return @{$_[0]->_pinselects};
 }
 sub logger {
     return $_[0]->netlist->logger;
@@ -125,17 +125,17 @@ sub _link {
     # Note this routine is HOT
     my $change;
     if (!$self->_nets) {
-	if ($self->_netnames) {
+	if ($self->_pinselects) {
 	    my @nets = ();
-	    foreach my $netname ($self->netnames) {
-		my $net = $self->module->find_net($netname->netname);
+	    foreach my $pinselect (@{$self->_pinselects}) {
+		my $net = $self->module->find_net($pinselect->netname);
 		next if (!defined($net));
 		my ($msb, $lsb);
 		# if the parsed description includes a range, use that,
 		# else use the complete range of the underlying net.
-		if (defined($netname->msb)) {
-		    $msb = $netname->msb;
-		    $lsb = $netname->lsb;
+		if (defined($pinselect->msb)) {
+		    $msb = $pinselect->msb;
+		    $lsb = $pinselect->lsb;
 		} else {
 		    $msb = $net->msb;
 		    $lsb = $net->lsb;
@@ -224,18 +224,18 @@ sub verilog_text {
     } else { # not by name, and unlinked
 	$inst = ".".$self->portname."(";
     }
-    my $net_cnt = $self->netnames;
+    my $net_cnt = $self->pinselects;
     if ($net_cnt >= 2) {
 	$inst .= "{";
 	my $comma = "";
-	foreach my $netname (reverse($self->netnames)) {
+	foreach my $pinselect (reverse($self->pinselects)) {
 	    $inst .= $comma;
-	    $inst .= $netname->bracketed_msb_lsb;
+	    $inst .= $pinselect->bracketed_msb_lsb;
 	    $comma = ",";
 	}
 	$inst .= "}";
     } elsif ($net_cnt == 1) {
-	my @tmp = $self->netnames;
+	my @tmp = $self->pinselects;
 	$inst .= $tmp[0]->bracketed_msb_lsb;
     }
 
@@ -246,13 +246,13 @@ sub verilog_text {
 sub dump {
     my $self = shift;
     my $indent = shift||0;
-    my $net_cnt = $self->netnames;
+    my $net_cnt = $self->pinselects;
     my $out = " "x$indent."Pin:".$self->name;
     $out .= ($net_cnt > 1) ? "  Nets:" : "  Net:";
     my $comma = "";
-    foreach my $netname (reverse($self->netnames)) {
+    foreach my $pinselect (reverse($self->pinselects)) {
 	$out .= $comma;
-	$out .= $netname->bracketed_msb_lsb;
+	$out .= $pinselect->bracketed_msb_lsb;
 	$comma = ",";
     }
     print "$out\n";
@@ -342,11 +342,11 @@ Reference to the Verilog::Netlist the pin is in.
 =item $self->netname
 
 The net name the pin connects to.  This function is deprecated; use
-netnames instead.
+pinselects instead.
 
-=item $self->netnames
+=item $self->pinselects
 
-The net names the pins connect to, as an array.
+The net names the pins connect to, as an array of Verilog::Netlist::PinSelection elements.
 
 =item $self->portname
 

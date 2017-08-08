@@ -363,7 +363,7 @@ sub pinselects {
     );
 
     if ($self->{use_pinselects}) {
-	$params{netnames} = $nets;
+	$params{pinselects} = $nets;
     } else {
 	$params{netname} = $nets;
     }
