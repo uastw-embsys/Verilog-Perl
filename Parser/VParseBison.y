@@ -283,11 +283,15 @@ static void PIN_CONCAT_APPEND(const string& expr) {
 	// of a replication constant. If that's detected ignore the
 	// previous expression (that is actually just the contained
 	// concatenation) in favor of the full replication expression.
-	if (expr[0] == '{' && expr.find_first_of("{", 1) != string::npos) {
-	    // fprintf(stderr, "%d: ignoring \"%s\" in favor of \"%s\".\n", __LINE__, GRAMMARP->m_portStack.front().m_name.c_str(), expr.c_str());
-	    GRAMMARP->m_portStack.pop_front();
+	if (expr[0] == '{') {
+	    if (expr.find_first_of("{", 1) != string::npos) {
+		// fprintf(stderr, "%d: ignoring \"%s\" in favor of \"%s\".\n", __LINE__, GRAMMARP->m_portStack.front().m_name.c_str(), expr.c_str());
+		GRAMMARP->m_portStack.pop_front();
+		GRAMMARP->m_portStack.push_front(VParseNet(expr));
+	    }
+	} else {
+	    GRAMMARP->m_portStack.push_front(VParseNet(expr));
 	}
-	GRAMMARP->m_portStack.push_front(VParseNet(expr));
     } else {
         GRAMMARP->m_portStack.push_front(VParseNet(GRAMMARP->m_portNextNetName, GRAMMARP->m_portNextNetMsb, GRAMMARP->m_portNextNetLsb));
     }
